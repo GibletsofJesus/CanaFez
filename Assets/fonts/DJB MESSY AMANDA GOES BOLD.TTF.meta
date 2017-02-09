@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: df729cf2ce0b59d49b663a466f2b08b0
+timeCreated: 1486156176
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: DJB Messy Amanda Goes Bold
+  fontNames:
+  - DJB Messy Amanda Goes Bold
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
