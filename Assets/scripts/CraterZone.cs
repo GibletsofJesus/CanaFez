@@ -2,15 +2,21 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class CraterZone : MonoBehaviour {
-
-	// Use this for initialization
-	void Start () {
-		
-	}
+public class CraterZone : MonoBehaviour
+{
 	
-	// Update is called once per frame
-	void Update () {
-		
+	void OnTriggerEnter (Collider col)
+	{
+		ThirdPersonCharacter.instance.SetCraters(true);
+	}
+
+	void OnTriggerStay (Collider col)
+	{
+		ThirdPersonCharacter.instance.SetCraters(true);
+	}
+
+	void OnTriggerExit (Collider col)
+	{
+		ThirdPersonCharacter.instance.SetCraters(false);
 	}
 }

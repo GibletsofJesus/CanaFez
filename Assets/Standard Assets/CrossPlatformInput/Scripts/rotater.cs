@@ -6,6 +6,7 @@ public class rotater : MonoBehaviour
 
 	public Transform rotationCenter;
 	public axis rotationAxis;
+	public bool localSpace;
 
 	public enum axis
 	{
@@ -19,6 +20,7 @@ public class rotater : MonoBehaviour
 
 	void FixedUpdate ()
 	{
+
 		switch (rotationAxis) {
 			case axis.x:
 				transform.RotateAround(rotationCenter.position,Vector3.right,Time.fixedDeltaTime * speed);

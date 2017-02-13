@@ -78,12 +78,22 @@ public class WorldGen : MonoBehaviour
 
 	public IEnumerator GenerateCity ()
 	{
+		ThirdPersonCharacter.instance.lastSpawner = null;
 		worldObjects.rotation = Quaternion.Euler(Vector3.zero);
 		foreach (Building b in buildings) {
 			Destroy(b.gameObject);
 		}
 		buildings.Clear();
 		ResetSquares();
+
+		//Place me some parks bb
+		int parkX = Random.Range(3,8), parkY = Random.Range(3,6);
+		int startx = Random.Range(0,citySizeX - parkX - 1), starty = Random.Range(0,citySizeY - parkY - 1);
+		for (int i = startx; i < startx + parkX; i++) {
+			for (int j = starty; j < starty + parkY; j++) {
+				availableSquares [i, j] = false;
+			}
+		}
 
 		for (int i = 0; i < density; i++) {
 			//Which building to place
@@ -130,7 +140,7 @@ public class WorldGen : MonoBehaviour
 		CityNameUi.GetComponentInParent<Animator>().Play("city intro");
 		string[] start = { "North", "East", "South", "West", "New" };
 		string[] noun = { "Bork", "Snork", "Cleft", "Smog", "Crump", "Biggle", "Fuckshit" };
-		string[] suffix = { "ington", "shire", " upon thames" };
+		string[] suffix = { "ington", "shire", " upon thames", "istan", "ville" };
 		string output = "";
 		if (Random.value > 0.2f)
 			output += start [Random.Range(0,start.Length)] + " ";
@@ -154,6 +164,7 @@ public class WorldGen : MonoBehaviour
 
 		Building _newBuilding = (Building)Instantiate(prefab,_spawnPos,Quaternion.Euler(Vector3.up * 90 * rot),transform);
 		_newBuilding.standardPos = _newBuilding.transform.position;
+		//Rotate new building
 		switch (rot) {
 			case 1:
 				_newBuilding.rotOffset = Vector3.right * buildingChunkSize;
@@ -231,11 +242,31 @@ public class WorldGen : MonoBehaviour
 
 	void FillInAvailableSquares ()
 	{
+		Vector3 prevPos = Vector3.zero;
+		List<Vector3> spawnLocations = new List<Vector3> ();
 		//Generate a 10x10 grid of 1x1 buildings, not very interesting at all.
 		for (int y = 0; y < citySizeY; y++) {
 			for (int x = 0; x < citySizeX; x++) {
 				if (availableSquares [x, y]) {
-					PlaceLargeBuilding(buildingPrefabs [0].buildingObject,1,1,x,y,0);
+
+					Building b = PlaceLargeBuilding(buildingPrefabs [0].buildingObject,1,1,x,y,0);
+					bool spawn = true;
+
+					foreach (Vector3 v in  spawnLocations) {
+						if (Vector3.Distance(v,b.transform.localPosition) < 30) {
+							spawn = false;
+							break;
+						}
+					}
+					if (spawn) {
+						spawnLocations.Add(b.transform.localPosition);
+						b.SetupSpawner(true);
+						if (!ThirdPersonCharacter.instance.lastSpawner)
+							ThirdPersonCharacter.instance.lastSpawner = b.spawner;
+					}
+					else {
+						b.SetupSpawner(false);
+					}
 				}
 			}
 		}
