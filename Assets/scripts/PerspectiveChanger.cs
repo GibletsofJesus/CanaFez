@@ -20,10 +20,11 @@ public class PerspectiveChanger : MonoBehaviour
 		return Mathf.Abs(WorldObjects.transform.rotation.eulerAngles.y);
 	}
 
+	Vector3 prevVel, prevAngVel;
+
 	public void RotatePerspective ()
 	{
-		if (rotationAmount > 0) {
-			Time.timeScale = 0f;
+		if (rotationAmount > 0) {			
 			rotationAmount -= Time.unscaledDeltaTime * changeSpeed;
 			WorldObjects.RotateAround(PlayerAvatar.position,Vector3.up,Time.unscaledDeltaTime * changeSpeed);
 
@@ -32,11 +33,16 @@ public class PerspectiveChanger : MonoBehaviour
 				WorldObjects.RotateAround(PlayerAvatar.position,Vector3.up,rotationAmount);
 
 				rotationAmount = 0;
-				Time.timeScale = Input.GetKey(KeyCode.Joystick1Button5) ? 0 : 1;
+
+				Time.timeScale = Input.GetKey(KeyCode.Joystick1Button4) ? 0 : 1;
+				/*if (!Input.GetKey(KeyCode.Joystick1Button4)) {
+					m_Rigidbody.velocity = prevVel;
+					m_Rigidbody.angularVelocity = prevAngVel;
+					m_Rigidbody.isKinematic = false;
+				}*/
 			}
 		}
 		else if (rotationAmount < 0) {
-				Time.timeScale = 0f;
 				rotationAmount += Time.unscaledDeltaTime * changeSpeed;
 				WorldObjects.RotateAround(PlayerAvatar.position,Vector3.down,Time.unscaledDeltaTime * changeSpeed);
 
@@ -46,19 +52,25 @@ public class PerspectiveChanger : MonoBehaviour
 
 					//WorldObjects.rotation = Quaternion.Euler(0,idealRotation,0);
 					rotationAmount = 0;
+
 					Time.timeScale = Input.GetKey(KeyCode.Joystick1Button4) ? 0 : 1;
+					/*
+					if (!Input.GetKey(KeyCode.Joystick1Button4)) {
+						m_Rigidbody.velocity = prevVel;
+						m_Rigidbody.angularVelocity = prevAngVel;
+						m_Rigidbody.isKinematic = false;
+					}*/
 				}
-			}
-			else {
-				//Time.timeScale = 1;
 			}
 	}
 
 	bool forceRotation;
 	Quaternion accurateRot, startRot;
+	Rigidbody m_Rigidbody;
 
 	void Start ()
 	{
+		m_Rigidbody = GetComponent<Rigidbody>();
 		instance = this;
 		accurateRot = CameraObject.localRotation;
 		startRot = accurateRot;
@@ -68,11 +80,12 @@ public class PerspectiveChanger : MonoBehaviour
 	public IEnumerator MoveCam ()
 	{
 		yield return new WaitForSeconds (3);
-		lerpSpeed = 10;
+		lerpSpeed = 2;
 		yield return new WaitForSeconds (1);
 		forceRotation = true;
 		yield return new WaitForSeconds (1);
 		GameStateManager.instance.ChangeState(GameStateManager.GameStates.STATE_GAMEPLAY);
+		lerpSpeed = 6;
 		GetComponent<Rigidbody>().isKinematic = false;
 	}
 
@@ -102,19 +115,20 @@ public class PerspectiveChanger : MonoBehaviour
 			accurateRot = Quaternion.Lerp(startRot,Quaternion.Euler(Vector3.down * 180),ElLerpo);
 			CameraObject.localRotation = snapRot();
 		}
-		if (transform.rotation.eulerAngles.y > 0 && transform.rotation.eulerAngles.y < 180)
-			offset.x *= -1f;
+
+		if (!ThirdPersonCharacter.instance.rolling)
+			offset.x = 9.25f * (transform.rotation.eulerAngles.y > 0 && transform.rotation.eulerAngles.y < 180 ? 1 : -1);
+		
 
 		Vector3 clampedPos = PlayerAvatar.position;
 		if (clampedPos.y < -15)
 			clampedPos.y = -15;
 		idealPosition = Vector3.Lerp(CameraObject.position,clampedPos + offset,Time.deltaTime * lerpSpeed);
+		idealPosition.y = -5;
 		CameraObject.position = idealPosition;
 		RotatePerspective();
 		ControllerInput();
 
-		if (transform.rotation.eulerAngles.y > 0 && transform.rotation.eulerAngles.y < 180)
-			offset.x *= -1f;
 	}
 
 	public void Rotate (bool dir)//false left, true right
@@ -125,6 +139,12 @@ public class PerspectiveChanger : MonoBehaviour
 			idealRotation += 360;
 		if (idealRotation > 360)
 			idealRotation -= 360;
+
+		//Equivelant of pausing this ting
+		prevVel = m_Rigidbody.velocity;
+		prevAngVel = m_Rigidbody.angularVelocity;
+		//m_Rigidbody.isKinematic = true;
+		Time.timeScale = 0;
 	}
 
 	public void Rotate (float amount)
