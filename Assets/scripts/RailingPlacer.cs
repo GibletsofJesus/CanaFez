@@ -10,7 +10,9 @@ public class RailingPlacer : MonoBehaviour
 	float chunkSize = 0.5375f;
 	[SerializeField]
 	GameObject railingObject;
-	// Use this for initialization
+	[SerializeField]
+	Transform associatedBuilding;
+
 	void Start ()
 	{
 		MakeRailings(sizeX,sizeY);
@@ -51,6 +53,29 @@ public class RailingPlacer : MonoBehaviour
 			}
 		}
 		old = _sizeX * _sizeY;
+		CombineMeshes();
+	}
+
+	void CombineMeshes ()
+	{
+		Vector3 prev = transform.position;
+		transform.position = Vector3.zero;
+		transform.localScale /= 2;
+		MeshFilter[] meshes = GetComponentsInChildren<MeshFilter>();
+		CombineInstance[] combine = new CombineInstance [meshes.Length];
+		int i = 0;
+		while (i < meshes.Length) {
+			combine [i].mesh = meshes [i].sharedMesh;
+			combine [i].transform = meshes [i].transform.localToWorldMatrix;
+			meshes [i].gameObject.SetActive(false);
+			i++;
+		}
+		MeshFilter newMesh = gameObject.AddComponent<MeshFilter>();
+		newMesh.mesh = new Mesh ();
+		newMesh.mesh.CombineMeshes(combine);
+		transform.position = prev;
+		transform.localScale *= 2;
+		transform.localRotation = associatedBuilding.localRotation;
 	}
 
 	int old;
