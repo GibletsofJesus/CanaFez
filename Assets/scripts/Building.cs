@@ -9,7 +9,7 @@ public class Building : MonoBehaviour
 	public Animator spawner;
 	public float result;
 
-	public void SetupSpawner (bool respawn)
+	public Animator SetupSpawner (bool respawn)
 	{
 		spawner.gameObject.SetActive(respawn); 
 		if (respawn) {
@@ -32,5 +32,6 @@ public class Building : MonoBehaviour
 					break;
 			}
 		}
+		return spawner.gameObject.activeSelf ? spawner : null;
 	}
 }

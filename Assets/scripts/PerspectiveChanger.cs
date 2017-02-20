@@ -17,7 +17,7 @@ public class PerspectiveChanger : MonoBehaviour
 
 	public float GetWorldOrientation ()
 	{
-		return Mathf.Abs(WorldObjects.transform.rotation.eulerAngles.y);
+		return WorldObjects.transform.rotation.eulerAngles.y;
 	}
 
 	Vector3 prevVel, prevAngVel;
@@ -124,7 +124,7 @@ public class PerspectiveChanger : MonoBehaviour
 		if (clampedPos.y < -15)
 			clampedPos.y = -15;
 		idealPosition = Vector3.Lerp(CameraObject.position,clampedPos + offset,Time.deltaTime * lerpSpeed);
-		idealPosition.y = -5;
+		//idealPosition.y = -5;
 		CameraObject.position = idealPosition;
 		RotatePerspective();
 		ControllerInput();
@@ -147,18 +147,21 @@ public class PerspectiveChanger : MonoBehaviour
 		Time.timeScale = 0;
 	}
 
-	public void Rotate (float amount)
+	public void Rotate (float doorAngle, float worldAngle)
 	{
-		if (amount == 270)
-			amount = -90;
-		if (amount == -270)
-			amount = 90;
-		rotationAmount += amount;
+		float additionalRotation = doorAngle - worldAngle;
+		if (additionalRotation == 270)
+			additionalRotation = -90;
+		if (additionalRotation == -270)
+			additionalRotation = 90;
+		rotationAmount += additionalRotation;
 		idealRotation += rotationAmount;
 		if (idealRotation < 0)
 			idealRotation += 360;
 		if (idealRotation > 360)
 			idealRotation -= 360;
+
+		Time.timeScale = rotationAmount == 0 ? 1 : 0;
 	}
 
 	void ControllerInput ()

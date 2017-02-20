@@ -15,8 +15,16 @@ public class WorldGen : MonoBehaviour
 		public int sizeX, sizeY;
 	}
 
+	[System.Serializable]
+	class roadIntersections
+	{
+		public bool up, down, left, right;
+
+	}
+
 	public static WorldGen instance;
 
+	[Header("Building settings")]
 	[SerializeField]
 	buildingPrefab[] buildingPrefabs;
 	[SerializeField]
@@ -30,6 +38,18 @@ public class WorldGen : MonoBehaviour
 	bool[,] availableSquares;
 	[SerializeField]
 	List<Vector2> possiblePlacements = new List<Vector2> ();
+	private int resMultiplier = 1;
+
+	[Header("Roads")]
+	roadIntersections[,] roadPoints;
+	[SerializeField]
+	GameObject[] intersectionPrefabs;
+	[SerializeField]
+	GameObject roadPrefab;
+
+	[Header("UI reference(s)")]
+	[SerializeField]
+	Text CityNameUi;
 
 	void Start ()
 	{
@@ -37,6 +57,186 @@ public class WorldGen : MonoBehaviour
 		StartCoroutine(GenerateCity());
 		CityNameUi.text = GenerateSillyName();
 	}
+
+	void Update ()
+	{
+		//Change screen resolution
+		if (Input.GetKeyDown(KeyCode.X)) {
+			resMultiplier++;
+			if (resMultiplier > 4)
+				resMultiplier = 1;
+			Screen.SetResolution(240 * resMultiplier,160 * resMultiplier,false);
+		}
+
+		//Display a new silly name
+		if (Input.GetKeyDown(KeyCode.Joystick1Button1))
+			GenerateSillyName();
+
+		//Generate a new city
+		if (Input.GetKeyDown(KeyCode.Joystick1Button6)) {
+			StopCoroutine(GenerateCity());
+			StartCoroutine(GenerateCity());
+		}
+	}
+
+	public IEnumerator GenerateCity ()
+	{
+		GameObject allBuildings = new GameObject ("Buildings");
+		allBuildings.transform.parent = transform;
+		allBuildings.transform.localScale = Vector3.one;
+		allBuildings.transform.localPosition = Vector3.zero;
+
+		ThirdPersonCharacter.instance.lastSpawner = null;
+		worldObjects.rotation = Quaternion.Euler(Vector3.zero);
+		foreach (Building b in buildings) {
+			Destroy(b.gameObject);
+		}
+		buildings.Clear();
+		ResetSquares();
+
+		roadPoints = new roadIntersections[citySizeX + 1,citySizeY + 1];
+
+		for (int y = 0; y < citySizeY + 1; y++) {
+			for (int x = 0; x < citySizeX + 1; x++) {
+				roadPoints [x, y] = new roadIntersections ();
+			}
+		}
+
+		#region parks
+		//Place me some parks bb
+		int parkX = Random.Range(3,8), parkY = Random.Range(3,6);
+		int startx = Random.Range(0,citySizeX - parkX - 1), starty = Random.Range(0,citySizeY - parkY - 1);
+		for (int i = startx; i < startx + parkX; i++) {
+			for (int j = starty; j < starty + parkY; j++) {
+				availableSquares [i, j] = false;
+			}
+		}
+		#endregion
+
+		#region place large buildings
+		for (int i = 0; i < density; i++) {
+			//Which building to place
+			//This will eventually be much better system, but it'll do FOR NOW
+			int index = Random.Range(1,buildingPrefabs.Length);
+			int rotAttempt = 0;
+
+			int tryThisOne = Random.Range(0,possiblePlacements.Count);
+			//Whilst we still have available places to put large buildings down
+			if (possiblePlacements.Count > 0) {		
+				//Find a valid postion to place a building	
+				while (possiblePlacements.Count > 0 &&
+				       !checkSpace(buildingPrefabs [index].sizeX,buildingPrefabs [index].sizeY, 			//object dimensions
+					       (int)possiblePlacements [tryThisOne].x,(int)possiblePlacements [tryThisOne].y, 	//position
+					       rotAttempt)) {//orientation
+					if (rotAttempt < 3) {
+						rotAttempt++;	
+					}
+					else {	
+						//Only do this if we've tried every possible rotation orientation (4)
+						possiblePlacements.RemoveAt(tryThisOne);
+						rotAttempt = 0;
+						tryThisOne = Random.Range(0,possiblePlacements.Count - 1);
+					}
+				}
+
+				if (possiblePlacements.Count > 0)
+					//Place building
+					yield return PlaceBuilding(buildingPrefabs [index].buildingObject,
+						buildingPrefabs [index].sizeX,
+						buildingPrefabs [index].sizeY,
+						(int)possiblePlacements [tryThisOne].x,
+						(int)possiblePlacements [tryThisOne].y,
+						rotAttempt,allBuildings.transform);
+			}
+			else
+				break;
+		}
+		#endregion
+
+		//Fill in the rest of the city
+		FillInAvailableSquares(allBuildings.transform);
+		StartCoroutine(RoadPlacement());
+		foreach (Building b in buildings) {
+			//b.gameObject.SetActive(false);
+		}
+	}
+
+	IEnumerator RoadPlacement ()
+	{
+		yield return null;
+		GameObject allRoads = new GameObject ("Roads");
+		allRoads.transform.parent = transform;
+		allRoads.transform.localScale = Vector3.one;
+		allRoads.transform.localPosition = Vector3.zero;
+
+		for (int x = 0; x < citySizeX + 1; x++) {
+			for (int y = 0; y < citySizeY + 1; y++) {
+				Vector3 _spawnPos = new Vector3 (x * (buildingChunkSize * 3),
+					                    -32.5f,
+					                    -y * (buildingChunkSize * 3));
+				_spawnPos += Vector3.forward * 3.5f;
+				_spawnPos += Vector3.left * 3.5f;
+				_spawnPos += transform.position;
+
+				//If an intersection only has 2 directions and they're the opposite of one another it's just a straight line
+				//So don't put a thing down, just make an extra long road.
+
+				int prefabToUse = (roadPoints [x, y].up ? 1 : 0) +
+				                  (roadPoints [x, y].down ? 1 : 0) +
+				                  (roadPoints [x, y].left ? 1 : 0) +
+				                  (roadPoints [x, y].right ? 1 : 0);
+				prefabToUse -= 2;
+
+				Quaternion RoadRot = Quaternion.Euler(Vector3.zero);
+
+				switch (prefabToUse) {
+					case 0:
+
+						if ((roadPoints [x, y].left && roadPoints [x, y].right) || (roadPoints [x, y].up && roadPoints [x, y].down)) {
+							prefabToUse = -5;
+							break;
+						}
+
+						if (roadPoints [x, y].left && roadPoints [x, y].up)
+							RoadRot = Quaternion.Euler(Vector3.up * 90);
+						if (roadPoints [x, y].down && roadPoints [x, y].left)
+							RoadRot = Quaternion.Euler(Vector3.up * 180);
+						if (roadPoints [x, y].right && roadPoints [x, y].down)
+							RoadRot = Quaternion.Euler(Vector3.up * 270);
+						break;
+					case 1: 
+						if (!roadPoints [x, y].down)
+							RoadRot = Quaternion.Euler(Vector3.up * 90);
+						if (!roadPoints [x, y].right)
+							RoadRot = Quaternion.Euler(Vector3.up * 180);
+						if (!roadPoints [x, y].up)
+							RoadRot = Quaternion.Euler(Vector3.up * 270);
+						break;
+				}
+
+				if (prefabToUse >= 0) {
+					GameObject _newIntersection = Instantiate(intersectionPrefabs [prefabToUse],_spawnPos,RoadRot,allRoads.transform) as GameObject;
+				}
+
+				if (roadPoints [x, y].right) {
+					GameObject _newSegment = Instantiate(roadPrefab,_spawnPos,Quaternion.Euler(Vector3.up * 90),allRoads.transform) as GameObject;
+					_newSegment.transform.localScale = Vector3.right * 0.75f + Vector3.one;
+					_newSegment.transform.localPosition += (Vector3.back * 5);
+				}
+				if (roadPoints [x, y].down) {
+					GameObject _newSegment = Instantiate(roadPrefab,_spawnPos,Quaternion.Euler(Vector3.zero),allRoads.transform) as GameObject;
+					_newSegment.transform.localScale = Vector3.right * 0.75f + Vector3.one;
+					_newSegment.transform.localPosition += (Vector3.right * 5);
+				}
+				/*Debug.DrawLine(_spawnPos,_spawnPos + (Vector3.left * 12.5f / 2),Color.red,roadPoints [x, y].up ? 50f : 0);
+				Debug.DrawLine(_spawnPos,_spawnPos + (Vector3.right * 12.5f / 2),Color.red,roadPoints [x, y].down ? 50f : 0);
+				Debug.DrawLine(_spawnPos,_spawnPos + (Vector3.forward * 12.5f / 2),Color.red,roadPoints [x, y].left ? 50f : 0);
+				Debug.DrawLine(_spawnPos,_spawnPos + (Vector3.back * 12.5f / 2),Color.red,roadPoints [x, y].right ? 50f : 0);*/
+			}
+		}
+	}
+
+	#region Building placement
 
 	bool checkSpace (int _sizeX, int _sizeY, int _posX, int _posY, int rot)
 	{
@@ -76,95 +276,21 @@ public class WorldGen : MonoBehaviour
 		return true;
 	}
 
-	public IEnumerator GenerateCity ()
+	Building PlaceBuilding (Building prefab, int _sizeX, int _sizeY, int _posX, int _posY, int rot, Transform _parent)
 	{
-		ThirdPersonCharacter.instance.lastSpawner = null;
-		worldObjects.rotation = Quaternion.Euler(Vector3.zero);
-		foreach (Building b in buildings) {
-			Destroy(b.gameObject);
-		}
-		buildings.Clear();
-		ResetSquares();
-
-		//Place me some parks bb
-		int parkX = Random.Range(3,8), parkY = Random.Range(3,6);
-		int startx = Random.Range(0,citySizeX - parkX - 1), starty = Random.Range(0,citySizeY - parkY - 1);
-		for (int i = startx; i < startx + parkX; i++) {
-			for (int j = starty; j < starty + parkY; j++) {
-				availableSquares [i, j] = false;
-			}
-		}
-
-		for (int i = 0; i < density; i++) {
-			//Which building to place
-			//This will eventually be much better system, but it'll do FOR NOW
-			int index = Random.Range(1,buildingPrefabs.Length);
-			int rotAttempt = 0;
-
-			int tryThisOne = Random.Range(0,possiblePlacements.Count);
-			//Whilst we still have available places to put large buildings down
-			if (possiblePlacements.Count > 0) {		
-				//Find a valid postion to place a building	
-				while (possiblePlacements.Count > 0 &&
-				       !checkSpace(buildingPrefabs [index].sizeX,buildingPrefabs [index].sizeY, 			//object dimensions
-					       (int)possiblePlacements [tryThisOne].x,(int)possiblePlacements [tryThisOne].y, 	//position
-					       rotAttempt)) {//orientation
-					if (rotAttempt < 3) {
-						rotAttempt++;	
-					}
-					else {	
-						//Only do this if we've tried every possible rotation orientation (4)
-						possiblePlacements.RemoveAt(tryThisOne);
-						rotAttempt = 0;
-						tryThisOne = Random.Range(0,possiblePlacements.Count - 1);
-					}
-				}
-
-				if (possiblePlacements.Count > 0)
-					//Place building
-					yield return PlaceLargeBuilding(buildingPrefabs [index].buildingObject,
-						buildingPrefabs [index].sizeX,buildingPrefabs [index].sizeY,
-						(int)possiblePlacements [tryThisOne].x,(int)possiblePlacements [tryThisOne].y,rotAttempt);
-			}
-			else
-				break;
-		}
-		FillInAvailableSquares();
-	}
-
-	[SerializeField]
-	Text CityNameUi;
-
-	public string GenerateSillyName ()
-	{
-		CityNameUi.GetComponentInParent<Animator>().Play("city intro");
-		string[] start = { "North", "East", "South", "West", "New" };
-		string[] noun = { "Bork", "Snork", "Cleft", "Smog", "Crump", "Biggle", "Fuckshit" };
-		string[] suffix = { "ington", "shire", " upon thames", "istan", "ville" };
-		string output = "";
-		if (Random.value > 0.2f)
-			output += start [Random.Range(0,start.Length)] + " ";
-		output += noun [Random.Range(0,noun.Length)];
-		if (Random.value > 0.2f)
-			output += suffix [Random.Range(0,suffix.Length)];
-		CityNameUi.GetComponentInParent<Animator>().Play("city intro");
-		CityNameUi.text = output;
-		return output;
-	}
-
-	Building PlaceLargeBuilding (Building prefab, int _sizeX, int _sizeY, int _posX, int _posY, int rot)
-	{
+		#region Determine spawn position of building
 		Vector3 _spawnPos = new Vector3 (_posX * (buildingChunkSize * 3), 
 			                    Random.Range(-heightVaraiation,heightVaraiation), 
 			                    -_posY * (buildingChunkSize * 3));
-		
+
 		_spawnPos += transform.position;
-
 		Vector3 offset = Vector3.zero;//Offset needed when rotating buildings so the end up in the same position as previously
+		#endregion
 
-		Building _newBuilding = (Building)Instantiate(prefab,_spawnPos,Quaternion.Euler(Vector3.up * 90 * rot),transform);
+		Building _newBuilding = (Building)Instantiate(prefab,_spawnPos,Quaternion.Euler(Vector3.up * 90 * rot),_parent);
 		_newBuilding.standardPos = _newBuilding.transform.position;
-		//Rotate new building
+
+		#region rotate building
 		switch (rot) {
 			case 1:
 				_newBuilding.rotOffset = Vector3.right * buildingChunkSize;
@@ -177,11 +303,52 @@ public class WorldGen : MonoBehaviour
 				_newBuilding.rotOffset = Vector3.back * buildingChunkSize;
 				break;
 		}
+		#endregion
+
 		_newBuilding.name = _posX + "," + _posY + ((prefab == buildingPrefabs [0].buildingObject) ? "" : "  " + prefab.name);
 		_newBuilding.transform.position = _newBuilding.standardPos + _newBuilding.rotOffset;
 		buildings.Add(_newBuilding);
 
-		//Make sure we don't place a building here
+		#region do road things
+		for (int x = 0; x < _sizeX + 1; x++) {
+			for (int y = 0; y < _sizeY + 1; y++) {
+
+				int xRotOffset = 0, yRotOffset = 0;
+				switch (rot) {
+					case 0:
+						xRotOffset = _posX + x;
+						yRotOffset = _posY + y;
+						break;
+					case 1:
+						xRotOffset = _posX - y + 1;
+						yRotOffset = _posY + x;
+						break;
+					case 2:
+						xRotOffset = _posX - x + 1;
+						yRotOffset = _posY - y + 1;
+						break;
+					case 3:
+						xRotOffset = _posX + y;
+						yRotOffset = _posY - x + 1;
+						break;
+				}
+
+				roadPoints [xRotOffset, yRotOffset].left = ((x == 0 || x == _sizeX) && y != 0
+					? true : roadPoints [xRotOffset, yRotOffset].left);
+				
+				roadPoints [xRotOffset, yRotOffset].right = ((x == 0 || x == _sizeX) && y != _sizeY
+					? true : roadPoints [xRotOffset, yRotOffset].right);
+				
+				roadPoints [xRotOffset, yRotOffset].down = ((y == 0 || y == _sizeY) && x != _sizeX
+					? true : roadPoints [xRotOffset, yRotOffset].down);
+
+				roadPoints [xRotOffset, yRotOffset].up = ((y == 0 || y == _sizeY) && x != 0
+					? true : roadPoints [xRotOffset, yRotOffset].up);
+			}
+		}
+		#endregion
+
+		#region Make sure we don't place a building here
 		for (int x = 0; x < _sizeX; x++) {
 			for (int y = 0; y < _sizeY; y++) {
 				switch (rot) {
@@ -203,26 +370,9 @@ public class WorldGen : MonoBehaviour
 				}
 			}
 		}
+		#endregion
+
 		return _newBuilding;
-	}
-
-	int resMultiplier = 1;
-
-	void Update ()
-	{
-		if (Input.GetKeyDown(KeyCode.X)) {
-			resMultiplier++;
-			if (resMultiplier > 4)
-				resMultiplier = 1;
-			Screen.SetResolution(240 * resMultiplier,160 * resMultiplier,false);
-		}
-		if (Input.GetKeyDown(KeyCode.Joystick1Button1))
-			GenerateSillyName();
-
-		if (Input.GetKeyDown(KeyCode.Joystick1Button6)) {
-			StopCoroutine(GenerateCity());
-			StartCoroutine(GenerateCity());
-		}
 	}
 
 	void ResetSquares ()
@@ -240,29 +390,27 @@ public class WorldGen : MonoBehaviour
 		}
 	}
 
-	void FillInAvailableSquares ()
+	void FillInAvailableSquares (Transform _parent)
 	{
 		Vector3 prevPos = Vector3.zero;
-		List<Vector3> spawnLocations = new List<Vector3> ();
+		List<Animator> spawners = new List<Animator> ();
+
 		//Generate a 10x10 grid of 1x1 buildings, not very interesting at all.
 		for (int y = 0; y < citySizeY; y++) {
 			for (int x = 0; x < citySizeX; x++) {
 				if (availableSquares [x, y]) {
 
-					Building b = PlaceLargeBuilding(buildingPrefabs [0].buildingObject,1,1,x,y,0);
+					Building b = PlaceBuilding(buildingPrefabs [0].buildingObject,1,1,x,y,0,_parent);
 					bool spawn = true;
 
-					foreach (Vector3 v in  spawnLocations) {
-						if (Vector3.Distance(v,b.transform.localPosition) < 30) {
+					foreach (Animator a in  spawners) {
+						if (Vector3.Distance(a.transform.position,b.transform.position) < 60) {
 							spawn = false;
 							break;
 						}
 					}
 					if (spawn) {
-						spawnLocations.Add(b.transform.localPosition);
-						b.SetupSpawner(true);
-						if (!ThirdPersonCharacter.instance.lastSpawner)
-							ThirdPersonCharacter.instance.lastSpawner = b.spawner;
+						spawners.Add(b.SetupSpawner(true));
 					}
 					else {
 						b.SetupSpawner(false);
@@ -270,21 +418,32 @@ public class WorldGen : MonoBehaviour
 				}
 			}
 		}
-	}
-}
 
-/*[CustomEditor(typeof(WorldGen))]
-public class worldGenButtons : Editor
-{
-	public override void OnInspectorGUI ()
-	{
-		DrawDefaultInspector();
-		WorldGen wg = (WorldGen)target;
-		if (GUILayout.Button("Generate city")) {
-			wg.StartCoroutine(wg.GenerateCity());
-		}
-		if (GUILayout.Button("Silly name")) {
-			Debug.Log(wg.GenerateSillyName());
-		}
+		if (!ThirdPersonCharacter.instance.lastSpawner)
+			ThirdPersonCharacter.instance.lastSpawner = spawners [spawners.Count / 2];
 	}
-}*/
+
+	#endregion
+
+	#region Personisation generation
+
+	public string GenerateSillyName ()
+	{
+		CityNameUi.GetComponentInParent<Animator>().Play("city intro");
+		string[] start = { "North", "East", "South", "West", "New" };
+		string[] noun = { "Bork", "Snork", "Cleft", "Smog", "Crump", "Biggle", "Fuckshit" };
+		string[] suffix = { "ington", "shire", " upon thames", "istan", "ville" };
+		string output = "";
+		if (Random.value > 0.2f)
+			output += start [Random.Range(0,start.Length)] + " ";
+		output += noun [Random.Range(0,noun.Length)];
+		if (Random.value > 0.2f)
+			output += suffix [Random.Range(0,suffix.Length)];
+		CityNameUi.GetComponentInParent<Animator>().Play("city intro");
+		CityNameUi.text = output;
+		return output;
+	}
+
+	#endregion
+
+}

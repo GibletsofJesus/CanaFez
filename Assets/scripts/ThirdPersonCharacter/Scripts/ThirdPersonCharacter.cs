@@ -109,10 +109,7 @@ public class ThirdPersonCharacter : MonoBehaviour
 		}
 		transform.rotation = Quaternion.Euler(Vector3.up * 90f);//* (lastSpawner.transform.localRotation.y > 0 ? 1f : -1f));
 
-		float thing = lastSpawner.transform.localRotation.eulerAngles.y - PerspectiveChanger.instance.GetWorldOrientation();
-
-		if (Mathf.Abs(thing) != 180)
-			PerspectiveChanger.instance.Rotate(thing);
+		PerspectiveChanger.instance.Rotate(lastSpawner.transform.localRotation.eulerAngles.y,PerspectiveChanger.instance.GetWorldOrientation());
 
 		lastSpawner.Play("rooftopDoor_open");
 		yield return new WaitForSeconds (1);
@@ -125,61 +122,68 @@ public class ThirdPersonCharacter : MonoBehaviour
 	public void Move (Vector3 move, bool crouch, bool jump)
 	{
 		if (respawning && lastSpawner.GetCurrentAnimatorStateInfo(0).IsName("rooftopDoor_open")) {
-			move = Vector3.left * 0.7f * (lastSpawner.transform.localRotation.y > 0 ? -1f : 1f);
+			bool dir = lastSpawner.transform.localRotation.eulerAngles.y < 0;
+
+			dir = (int)lastSpawner.transform.localRotation.eulerAngles.y >= Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation());
+			dir = (int)lastSpawner.transform.localRotation.eulerAngles.y == 90 && Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation()) == 90 ? false : dir;
+
+			move = Vector3.left * 0.7f * (dir ? 1f : -1f);
+			//Debug.Log("Resultant move " + move);
+			//Debug.Log("World roation: " + PerspectiveChanger.instance.GetWorldOrientation());
 			crouch = false;
 			jump = false;
 		}
 		else if (respawning) {
 				move = Vector3.zero;
 			}
-			else if (!rolling) {
-					CheckDeath();
-					if (CrossPlatformInputManager.GetButtonDown("Fire1")) {
-						//Do a reset
-						transform.position = lastSpawner.transform.position;
-						m_Rigidbody.velocity = Vector3.zero;
-						m_Rigidbody.angularVelocity = Vector3.zero;
-					}
+		if (!rolling) {
+			CheckDeath();
+			if (CrossPlatformInputManager.GetButtonDown("Fire1")) {
+				StartCoroutine(respawnEffect());
+			}
 
-					// convert the world relative moveInput vector into a local-relative
-					// turn amount and forward amount required to head in the desired
-					// direction.
-					if (move.magnitude > 1f)
-						move.Normalize();
-					move = transform.InverseTransformDirection(move);
+			// convert the world relative moveInput vector into a local-relative
+			// turn amount and forward amount required to head in the desired
+			// direction.
+			if (move.magnitude > 1f)
+				move.Normalize();
+			move = transform.InverseTransformDirection(move);
 
-					//Slight extra bit of acceleration
-					if (Mathf.Abs(CrossPlatformInputManager.GetAxis("Horizontal")) > .75f) {
-						running = true;
-					}
-					else {
-						m_MoveSpeedMultiplier = 1 + Mathf.Abs(CrossPlatformInputManager.GetAxis("Horizontal")) / 4f;
-						running = false;
-					}
-					if (running && m_MoveSpeedMultiplier < maxSpeedMultiplier && m_IsGrounded) {
-						m_MoveSpeedMultiplier += Time.fixedDeltaTime;
-						if (m_MoveSpeedMultiplier > maxSpeedMultiplier)
-							m_MoveSpeedMultiplier = maxSpeedMultiplier;
-					}
-
-					if (Mathf.Abs(m_Rigidbody.velocity.x) > 6)
-						checkFootCollision();
-					CheckGroundStatus();
-					move = Vector3.ProjectOnPlane(move,m_GroundNormal);
-					m_TurnAmount = Mathf.Atan2(move.x,move.z);
-					m_ForwardAmount = move.z;
-
-					ApplyExtraTurnRotation();
-
-					// control and velocity handling is different when grounded and airborne:
-					if (m_IsGrounded) {//|| extraJump) {
-						HandleGroundedMovement(crouch,jump);
-					}
-					else {
-						HandleAirborneMovement();
-					}
-					UpdateAnimator(move);
+			//Slight extra bit of acceleration
+			if (!respawning) {
+				if (Mathf.Abs(CrossPlatformInputManager.GetAxis("Horizontal")) > .75f) {
+					running = true;
 				}
+				else {
+					m_MoveSpeedMultiplier = 1 + Mathf.Abs(CrossPlatformInputManager.GetAxis("Horizontal")) / 4f;
+					running = false;
+				}
+				if (running && m_MoveSpeedMultiplier < maxSpeedMultiplier && m_IsGrounded) {
+					m_MoveSpeedMultiplier += Time.fixedDeltaTime;
+					if (m_MoveSpeedMultiplier > maxSpeedMultiplier)
+						m_MoveSpeedMultiplier = maxSpeedMultiplier;
+				}
+
+				//Dust poofs on the feet for running fast
+				if (Mathf.Abs(m_Rigidbody.velocity.x) > 6)
+					checkFootCollision();
+			}
+			CheckGroundStatus();
+			move = Vector3.ProjectOnPlane(move,m_GroundNormal);
+			m_TurnAmount = Mathf.Atan2(move.x,move.z);
+			m_ForwardAmount = move.z;
+
+			ApplyExtraTurnRotation();
+
+			// control and velocity handling is different when grounded and airborne:
+			if (m_IsGrounded) {//|| extraJump) {
+				HandleGroundedMovement(crouch,jump);
+			}
+			else {
+				HandleAirborneMovement();
+			}
+			UpdateAnimator(move);
+		}
 	}
 
 	void UpdateAnimator (Vector3 move)
@@ -216,6 +220,9 @@ public class ThirdPersonCharacter : MonoBehaviour
 		}
 	}
 
+	[SerializeField]
+	float newMaxVertSpeed, speedAmp;
+
 	void HandleAirborneMovement ()
 	{
 		//Allow strafing
@@ -230,6 +237,12 @@ public class ThirdPersonCharacter : MonoBehaviour
 			if (vel.x < -maxStrafeSpeed)
 				vel.x = -maxStrafeSpeed;
 		}
+
+		//If we're going down
+		if (vel.y < 0 && vel.y > -newMaxVertSpeed) {
+			vel.y -= Time.deltaTime * speedAmp;
+		}
+		//Debug.Log(vel.y);
 		m_Rigidbody.velocity = vel;
 
 		if (CrossPlatformInputManager.GetButtonDown("Jump") && extraJump) {
@@ -287,7 +300,25 @@ public class ThirdPersonCharacter : MonoBehaviour
 			m_Animator.SetBool("Crouch",true);
 			lerpy += Time.deltaTime * 2;
 			rollRotationObject.RotateAround(waistline.transform.position,rollRotationObject.right,Time.deltaTime * 360 * 2);
+			//Need to take gravity into account, as well as player input to slow down
 			transform.Translate(Vector3.right * speed * Time.deltaTime,Space.World);
+
+			float h = CrossPlatformInputManager.GetAxis("Horizontal");
+			#if UNITY_EDITOR
+			// helper to visualise the ground check ray in the scene view
+			#endif
+			if (Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,2.0f)) {
+				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * 2),Color.red,5f);
+			}
+			else {
+				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * 2),Color.blue,5f);
+				transform.Translate(Physics.gravity * Time.deltaTime,Space.World);
+			}
+				
+			//XOR
+			if (h >= 0 && speed >= 0 || h < 0 && speed < 0)
+				transform.Translate(Vector3.left * h * 5 * Time.deltaTime,Space.World);
+			
 			yield return new WaitForEndOfFrame ();
 		}
 		//Rotate player avatar at the waistline in local z axis
@@ -295,6 +326,8 @@ public class ThirdPersonCharacter : MonoBehaviour
 
 		//Need to make sure velocity is preserved during this time of crouching.
 		m_Animator.SetBool("Crouch",false);
+		RaycastHit _hitInfo;
+		m_Animator.SetBool("OnGround",Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,2.0f));
 
 		m_Rigidbody.constraints =
 			RigidbodyConstraints.FreezeRotationX |
@@ -332,13 +365,12 @@ public class ThirdPersonCharacter : MonoBehaviour
 		RaycastHit hitInfo;
 		#if UNITY_EDITOR
 		// helper to visualise the ground check ray in the scene view
-		Debug.DrawLine(transform.position + (Vector3.up * 0.1f),transform.position + (Vector3.up * 0.1f) + (Vector3.down * m_GroundCheckDistance),Color.red,5f);
+		//Debug.DrawLine(transform.position + (Vector3.up * 0.1f),transform.position + (Vector3.up * 0.1f) + (Vector3.down * m_GroundCheckDistance),Color.red,5f);
 		#endif
 		// 0.1f is a small offset to start the ray from inside the character
 		// it is also good to note that the transform position in the sample assets is at the base of the character
 		//if (Physics.Raycast(transform.position + (Vector3.up * 0.1f),Vector3.down,out hitInfo,m_GroundCheckDistance)) {
 		if (Physics.Raycast(transform.position + (Vector3.up * 0.1f),Vector3.down,out hitInfo,m_GroundCheckDistance)) {
-			Debug.Log(hitInfo.collider.name);
 			m_GroundNormal = hitInfo.normal;
 			if (!m_IsGrounded)
 				landing(hitInfo.point);
