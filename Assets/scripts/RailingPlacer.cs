@@ -2,16 +2,23 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 public class RailingPlacer : MonoBehaviour
 {
 
 	public int sizeX = 0, sizeY = 0;
+	public bool combineMeshesOnCompletion, DestoryCollidersOnCompletion;
 	[SerializeField]
 	float chunkSize = 0.5375f;
 	[SerializeField]
 	GameObject railingObject;
 	[SerializeField]
 	Transform associatedBuilding;
+	[SerializeField]
+	Collider[] noFencesHerePlease;
 
 	void Start ()
 	{
@@ -20,7 +27,7 @@ public class RailingPlacer : MonoBehaviour
 
 	List<GameObject> rails = new List<GameObject> ();
 
-	public void MakeRailings (int _sizeX, int _sizeY)
+	public IEnumerator MakeRailings (int _sizeX, int _sizeY)
 	{
 		//For square sections of railings, add 2 to sizeY
 		if (rails.Count > 0) {
@@ -53,10 +60,34 @@ public class RailingPlacer : MonoBehaviour
 			}
 		}
 		old = _sizeX * _sizeY;
-		CombineMeshes();
+		SelectivelyRemove();
+		if (DestoryCollidersOnCompletion) {
+			foreach (GameObject g in rails) {
+				Destroy(g.GetComponentInChildren<Collider>());
+			}
+		}
+		yield return new WaitForSeconds (0.1f);
+
+		if (combineMeshesOnCompletion)
+			CombineMeshes();
 	}
 
-	void CombineMeshes ()
+	void SelectivelyRemove ()
+	{
+		foreach (Collider c in GetComponentsInChildren<Collider>()) {
+			foreach (Collider _c in noFencesHerePlease) {
+				if (_c.bounds.Contains(c.bounds.center)) {
+					Destroy(c.gameObject);
+				}
+			}
+		}
+
+		foreach (Collider c in noFencesHerePlease) {
+			Destroy(c.gameObject);
+		}
+	}
+
+	public void CombineMeshes ()
 	{
 		Vector3 prev = transform.position;
 		transform.position = Vector3.zero;
@@ -73,9 +104,13 @@ public class RailingPlacer : MonoBehaviour
 		MeshFilter newMesh = gameObject.AddComponent<MeshFilter>();
 		newMesh.mesh = new Mesh ();
 		newMesh.mesh.CombineMeshes(combine);
+		GetComponent<MeshCollider>().sharedMesh = newMesh.mesh;
 		transform.position = prev;
 		transform.localScale *= 2;
 		transform.localRotation = associatedBuilding.localRotation;
+		foreach (GameObject g in rails) {
+			Destroy(g);
+		}
 	}
 
 	int old;
@@ -83,7 +118,22 @@ public class RailingPlacer : MonoBehaviour
 	void Update ()
 	{
 		if (sizeX * sizeY != old) {
-			MakeRailings(sizeX,sizeY);
+			StartCoroutine(MakeRailings(sizeX,sizeY));
 		}
 	}
 }
+
+#if UNITY_EDITOR
+[CustomEditor(typeof(RailingPlacer))]
+public class thingDoer : Editor
+{
+	public override void OnInspectorGUI ()
+	{
+		DrawDefaultInspector();
+
+		RailingPlacer rp = (RailingPlacer)target;
+		if (GUILayout.Button("Combine meshes"))
+			rp.CombineMeshes();
+	}
+}
+#endif

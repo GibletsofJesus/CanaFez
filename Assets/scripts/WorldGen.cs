@@ -41,6 +41,7 @@ public class WorldGen : MonoBehaviour
 	private int resMultiplier = 1;
 
 	[Header("Roads")]
+	public bool generateRoads;
 	roadIntersections[,] roadPoints;
 	[SerializeField]
 	GameObject[] intersectionPrefabs;
@@ -155,7 +156,8 @@ public class WorldGen : MonoBehaviour
 
 		//Fill in the rest of the city
 		FillInAvailableSquares(allBuildings.transform);
-		StartCoroutine(RoadPlacement());
+		if (generateRoads)
+			StartCoroutine(RoadPlacement());
 		foreach (Building b in buildings) {
 			//b.gameObject.SetActive(false);
 		}

@@ -45,7 +45,7 @@ public class ThirdPersonCharacter : MonoBehaviour
 	[SerializeField]
 	AudioClip[] footsteps;
 	[SerializeField]
-	AudioClip stompLandingSound;
+	AudioClip stompLandingSound, deathSound, doorOpen, doorClose;
 
 	[Header("All the other shit")]
 	[SerializeField]
@@ -98,25 +98,30 @@ public class ThirdPersonCharacter : MonoBehaviour
 	{
 		respawning = true;
 
+		SoundManager.instance.playSound(deathSound);
+		yield return new WaitForSeconds (1);
 		transform.position = lastSpawner.transform.position;
 		m_Rigidbody.velocity = Vector3.zero;
 		m_Rigidbody.angularVelocity = Vector3.zero;
 
+
 		PerspectiveChanger pc = GetComponent<PerspectiveChanger>();
 		while (Vector3.Distance(transform.position + pc.offset,GetComponent<PerspectiveChanger>().idealPosition) > 19f) {
-			//Debug.Log("waiting for cam");
 			yield return new WaitForEndOfFrame ();
 		}
 		transform.rotation = Quaternion.Euler(Vector3.up * 90f);//* (lastSpawner.transform.localRotation.y > 0 ? 1f : -1f));
 
 		PerspectiveChanger.instance.Rotate(lastSpawner.transform.localRotation.eulerAngles.y,PerspectiveChanger.instance.GetWorldOrientation());
 
+		SoundManager.instance.playSound(doorOpen);
 		lastSpawner.Play("rooftopDoor_open");
 		yield return new WaitForSeconds (1);
+		respawning = false;
+		yield return new WaitForSeconds (0.45f);
+		SoundManager.instance.playSound(doorClose);
 		//Debug.Log("starting 1 sec wait");
 		//Move forward a little bit
 		//Then return control to player
-		respawning = false;
 	}
 
 	public void Move (Vector3 move, bool crouch, bool jump)
@@ -392,6 +397,11 @@ public class ThirdPersonCharacter : MonoBehaviour
 			GamePad.SetVibration(0,vibration,vibration);
 		}
 
+	}
+
+	public bool isGrounded ()
+	{
+		return m_IsGrounded;
 	}
 
 	#region Crater stuff
