@@ -26,7 +26,7 @@ public class CameraShake : MonoBehaviour
 		shakeDuration += .5f;
 	}
 
-	void Update ()
+	void LateUpdate ()
 	{
 		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
 			if (shakeDuration > 0) {
@@ -38,7 +38,7 @@ public class CameraShake : MonoBehaviour
 			else {
 				shakeDuration = 0f;
 				shakeAmount = 0;
-				camTransform.position = PerspectiveChanger.instance.idealPosition;
+				//camTransform.position = PerspectiveChanger.instance.idealPosition;
 			}
 		}
 	}

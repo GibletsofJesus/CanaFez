@@ -35,31 +35,36 @@ public class PaletteSwapLookup : MonoBehaviour
         else*/
 		textComp.text = '\n' + "" + paletteIndex + ". " + LookupTexture [paletteIndex].name;
 
+	}
+
+	public void SetPaletteIndex (int newIndex)
+	{
+		paletteIndex = newIndex;
 		PlayerPrefs.SetInt("Palette",paletteIndex);
 	}
 
 	void Update ()
 	{
 		if (Input.GetKeyDown(KeyCode.Keypad0))
-			paletteIndex = 0;
+			SetPaletteIndex(0);
 		if (Input.GetKeyDown(KeyCode.Keypad1))
-			paletteIndex = 1;
+			SetPaletteIndex(1);
 		if (Input.GetKeyDown(KeyCode.Keypad2))
-			paletteIndex = 2;
+			SetPaletteIndex(2);
 		if (Input.GetKeyDown(KeyCode.Keypad3))
-			paletteIndex = 3;
+			SetPaletteIndex(3);
 		if (Input.GetKeyDown(KeyCode.Keypad4))
-			paletteIndex = 4;
+			SetPaletteIndex(4);
 		if (Input.GetKeyDown(KeyCode.Keypad5))
-			paletteIndex = 5;
+			SetPaletteIndex(5);
 		if (Input.GetKeyDown(KeyCode.Keypad6))
-			paletteIndex = 6;
+			SetPaletteIndex(6);
 		if (Input.GetKeyDown(KeyCode.Keypad7))
-			paletteIndex = 7;
+			SetPaletteIndex(7);
 		if (Input.GetKeyDown(KeyCode.Keypad8))
-			paletteIndex = 8;
+			SetPaletteIndex(8);
 		if (Input.GetKeyDown(KeyCode.Keypad9))
-			paletteIndex = 9;
+			SetPaletteIndex(9);
 
 		/*num += Time.deltaTime;
 		if (num > 2) {

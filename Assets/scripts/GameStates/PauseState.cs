@@ -4,7 +4,7 @@ public class PauseState : GameState
 {
 	public override void OnStateActivate ()
 	{
-		Time.timeScale = 0.001f;
+		Time.timeScale = 0.00001f;
 		GameStateManager.instance.PauseMenu.SetActive(true);
 		GameStateManager.instance.GameplayUI.SetActive(false);
 		menuIndex = 0;
@@ -14,6 +14,7 @@ public class PauseState : GameState
 	{
 		Time.timeScale = 1;
 		GameStateManager.instance.PauseMenu.SetActive(false);
+		GameStateManager.instance.PauseMenu.GetComponent<PauseMenu>().Reset();
 		GameStateManager.instance.GameplayUI.SetActive(true);
 	}
 

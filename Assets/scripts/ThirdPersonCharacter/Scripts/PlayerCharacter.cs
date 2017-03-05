@@ -8,22 +8,22 @@ using XInputDotNetPure;
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(CapsuleCollider))]
 [RequireComponent(typeof(Animator))]
-public class ThirdPersonCharacter : MonoBehaviour
+public class PlayerCharacter : MonoBehaviour
 {
-	public static ThirdPersonCharacter instance;
+	public static PlayerCharacter instance;
 
 	#region all ThreadSafeAttribute prefab shiz
 
-	[Header("Movement stats")]
-	[SerializeField] float m_MovingTurnSpeed = 360;
-	[SerializeField] float m_StationaryTurnSpeed = 180;
-	[SerializeField] float m_JumpPower = 12f;
-	[Range(1f, 4f)][SerializeField] float m_GravityMultiplier = 2f;
-	[SerializeField] float m_RunCycleLegOffset = 0.2f;
+	//[Header("Movement stats")]
+	float m_MovingTurnSpeed = 480;
+	float m_StationaryTurnSpeed = 720;
+	float m_JumpPower = 10f;
+	float m_GravityMultiplier = 2f;
+	float m_RunCycleLegOffset = 0.2f;
 	//specific to the character in sample assets, will need to be modified to work with others
-	[SerializeField] float m_MoveSpeedMultiplier = 1f, maxSpeedMultiplier;
-	[SerializeField] float m_AnimSpeedMultiplier = 1f;
-	[SerializeField] float m_GroundCheckDistance = 0.1f;
+	float m_MoveSpeedMultiplier = 1.2f, maxSpeedMultiplier = 4;
+	float m_AnimSpeedMultiplier = 1.2f;
+	float m_GroundCheckDistance = 0.3f;
 
 	Rigidbody m_Rigidbody;
 	Animator m_Animator;
@@ -40,6 +40,11 @@ public class ThirdPersonCharacter : MonoBehaviour
 	[SerializeField]
 	bool doubleJump;
 	bool extraJump;
+
+	[Header("Rolling related")]
+	public bool rolling;
+	[SerializeField]
+	Transform waistline, rollRotationObject;
 
 	[Header("Audio")]
 	[SerializeField]
@@ -60,10 +65,6 @@ public class ThirdPersonCharacter : MonoBehaviour
 	[HideInInspector]
 	public Animator lastSpawner;
 
-	[Header("Rolling related")]
-	public bool rolling;
-	[SerializeField]
-	Transform waistline, rollRotationObject;
 	Vector3 jumpStartPosition;
 	public float airbourneSpeedMultiplier, maxStrafeSpeed = 20;
 	float vibration;
@@ -100,16 +101,17 @@ public class ThirdPersonCharacter : MonoBehaviour
 
 		SoundManager.instance.playSound(deathSound);
 		yield return new WaitForSeconds (1);
-		transform.position = lastSpawner.transform.position;
 		m_Rigidbody.velocity = Vector3.zero;
 		m_Rigidbody.angularVelocity = Vector3.zero;
-
+		m_IsGrounded = true;
+		transform.position = lastSpawner.transform.position;
 
 		PerspectiveChanger pc = GetComponent<PerspectiveChanger>();
 		while (Vector3.Distance(transform.position + pc.offset,GetComponent<PerspectiveChanger>().idealPosition) > 19f) {
 			yield return new WaitForEndOfFrame ();
 		}
-		transform.rotation = Quaternion.Euler(Vector3.up * 90f);//* (lastSpawner.transform.localRotation.y > 0 ? 1f : -1f));
+		//Replace me
+		//transform.rotation = Quaternion.Euler(Vector3.up * 90f);//* (lastSpawner.transform.localRotation.y > 0 ? 1f : -1f));
 
 		PerspectiveChanger.instance.Rotate(lastSpawner.transform.localRotation.eulerAngles.y,PerspectiveChanger.instance.GetWorldOrientation());
 
@@ -124,23 +126,79 @@ public class ThirdPersonCharacter : MonoBehaviour
 		//Then return control to player
 	}
 
-	public void Move (Vector3 move, bool crouch, bool jump)
+	float jumpTimer = 0;
+
+	void UpdateAnimator (Vector3 move)
 	{
+		// update the animator parameters
+		m_Animator.SetFloat("Forward",m_ForwardAmount,0.1f,Time.deltaTime);
+		m_Animator.SetFloat("Turn",m_TurnAmount,0.1f,Time.deltaTime);
+		m_Animator.SetBool("Crouch",m_Crouching);
+		m_Animator.SetBool("OnGround",m_IsGrounded);
+
+		if (!m_IsGrounded) {
+			m_Animator.SetFloat("Jump",m_Rigidbody.velocity.y);
+		}
+
+		// calculate which leg is behind, so as to leave that leg trailing in the jump animation
+		// (This code is reliant on the specific run cycle offset in our animations,
+		// and assumes one leg passes the other at the normalized clip times of 0.0 and 0.5)
+		float runCycle =
+			Mathf.Repeat(
+				m_Animator.GetCurrentAnimatorStateInfo(0).normalizedTime + m_RunCycleLegOffset,1);
+		float jumpLeg = (runCycle < k_Half ? 1 : -1) * m_ForwardAmount;
+		if (m_IsGrounded) {
+			m_Animator.SetFloat("JumpLeg",jumpLeg);
+		}
+
+		// the anim speed multiplier allows the overall speed of walking/running to be tweaked in the inspector,
+		// which affects the movement speed because of the root motion.
+		if (m_IsGrounded && move.magnitude > 0) {
+			m_Animator.speed = m_AnimSpeedMultiplier;
+		}
+		else {
+			// don't use that while airborne
+			m_Animator.speed = 1;
+		}
+	}
+
+	#region movement
+
+	[SerializeField]
+	float newMaxVertSpeed, speedAmp;
+
+	public void Move (Vector3 move, bool crouch)
+	{
+		int jump = 0;
+		if (CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded)
+			jump = 1;
+		/*	jumpTimer += Time.deltaTime;
+			//GameObject.Find("Slider").GetComponent<Slider>().value = jumpTimer;
+		}
+
+		if (CrossPlatformInputManager.GetButtonUp("Jump") && m_IsGrounded) {
+			jump = jumpTimer > 0.5f ? 2 : 1;
+		}
+		if (!CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded)
+			jumpTimer = 0;*/
+
 		if (respawning && lastSpawner.GetCurrentAnimatorStateInfo(0).IsName("rooftopDoor_open")) {
 			bool dir = lastSpawner.transform.localRotation.eulerAngles.y < 0;
 
 			dir = (int)lastSpawner.transform.localRotation.eulerAngles.y >= Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation());
 			dir = (int)lastSpawner.transform.localRotation.eulerAngles.y == 90 && Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation()) == 90 ? false : dir;
 
-			move = Vector3.left * 0.7f * (dir ? 1f : -1f);
+
+			move = lastSpawner.transform.forward * 0.7f * (dir ? 1f : -1f);
 			//Debug.Log("Resultant move " + move);
 			//Debug.Log("World roation: " + PerspectiveChanger.instance.GetWorldOrientation());
 			crouch = false;
-			jump = false;
 		}
 		else if (respawning) {
 				move = Vector3.zero;
 			}
+
+		#region normal movement...?
 		if (!rolling) {
 			CheckDeath();
 			if (CrossPlatformInputManager.GetButtonDown("Fire1")) {
@@ -189,44 +247,8 @@ public class ThirdPersonCharacter : MonoBehaviour
 			}
 			UpdateAnimator(move);
 		}
+		#endregion
 	}
-
-	void UpdateAnimator (Vector3 move)
-	{
-		// update the animator parameters
-		m_Animator.SetFloat("Forward",m_ForwardAmount,0.1f,Time.deltaTime);
-		m_Animator.SetFloat("Turn",m_TurnAmount,0.1f,Time.deltaTime);
-		m_Animator.SetBool("Crouch",m_Crouching);
-		m_Animator.SetBool("OnGround",m_IsGrounded);
-
-		if (!m_IsGrounded) {
-			m_Animator.SetFloat("Jump",m_Rigidbody.velocity.y);
-		}
-
-		// calculate which leg is behind, so as to leave that leg trailing in the jump animation
-		// (This code is reliant on the specific run cycle offset in our animations,
-		// and assumes one leg passes the other at the normalized clip times of 0.0 and 0.5)
-		float runCycle =
-			Mathf.Repeat(
-				m_Animator.GetCurrentAnimatorStateInfo(0).normalizedTime + m_RunCycleLegOffset,1);
-		float jumpLeg = (runCycle < k_Half ? 1 : -1) * m_ForwardAmount;
-		if (m_IsGrounded) {
-			m_Animator.SetFloat("JumpLeg",jumpLeg);
-		}
-
-		// the anim speed multiplier allows the overall speed of walking/running to be tweaked in the inspector,
-		// which affects the movement speed because of the root motion.
-		if (m_IsGrounded && move.magnitude > 0) {
-			m_Animator.speed = m_AnimSpeedMultiplier;
-		}
-		else {
-			// don't use that while airborne
-			m_Animator.speed = 1;
-		}
-	}
-
-	[SerializeField]
-	float newMaxVertSpeed, speedAmp;
 
 	void HandleAirborneMovement ()
 	{
@@ -235,12 +257,24 @@ public class ThirdPersonCharacter : MonoBehaviour
 
 		Vector3 vel = m_Rigidbody.velocity;
 
-		if ((vel.x < maxStrafeSpeed && h > 0) || (vel.x > -maxStrafeSpeed && h < 0)) {
-			vel = new Vector3 (vel.x + (h * Time.deltaTime * airbourneSpeedMultiplier), vel.y, vel.z);
-			if (vel.x > maxStrafeSpeed)
-				vel.x = maxStrafeSpeed;
-			if (vel.x < -maxStrafeSpeed)
-				vel.x = -maxStrafeSpeed;
+		//Almost there, just need to reverse the velocity added if we're facing certain directions
+		if (!movingOnXAxis()) {
+			if ((vel.z < maxStrafeSpeed && h > 0) || (vel.z > -maxStrafeSpeed && h < 0)) {
+				vel = new Vector3 (vel.x, vel.y, vel.z - (h * Time.deltaTime * airbourneSpeedMultiplier));
+				if (vel.z > maxStrafeSpeed)
+					vel.z = maxStrafeSpeed;
+				if (vel.z < -maxStrafeSpeed)
+					vel.z = -maxStrafeSpeed;
+			}
+		}
+		else {
+			if ((vel.x < maxStrafeSpeed && h > 0) || (vel.x > -maxStrafeSpeed && h < 0)) {
+				vel = new Vector3 (vel.x + (h * Time.deltaTime * airbourneSpeedMultiplier), vel.y, vel.z);
+				if (vel.x > maxStrafeSpeed)
+					vel.x = maxStrafeSpeed;
+				if (vel.x < -maxStrafeSpeed)
+					vel.x = -maxStrafeSpeed;
+			}
 		}
 
 		//If we're going down
@@ -250,10 +284,20 @@ public class ThirdPersonCharacter : MonoBehaviour
 		//Debug.Log(vel.y);
 		m_Rigidbody.velocity = vel;
 
+		if (CrossPlatformInputManager.GetButtonUp("Jump")) {
+			Debug.Log("button up");
+			extraJump = true;
+		}
+
 		if (CrossPlatformInputManager.GetButtonDown("Jump") && extraJump) {
+			Debug.Log("Double jump");
 			extraJump = false;
 			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
 		}
+		else if (CrossPlatformInputManager.GetButton("Jump")) {
+				Debug.Log("No Double jump for you");
+
+			}
 		// apply extra gravity from multiplier:
 		Vector3 extraGravityForce = (Physics.gravity * m_GravityMultiplier) - Physics.gravity;
 		m_Rigidbody.AddForce(extraGravityForce);
@@ -274,14 +318,55 @@ public class ThirdPersonCharacter : MonoBehaviour
 		}
 	}
 
-	#region everything to with landing / being on the ground
+	public bool movingOnXAxis ()
+	{
+		return Mathf.Round(CameraShake.instance.transform.localRotation.eulerAngles.y) == 0 ||
+		Mathf.Round(CameraShake.instance.transform.localRotation.eulerAngles.y) == 180;
+	}
 
-	void HandleGroundedMovement (bool crouch, bool jump)
+	RigidbodyConstraints AxisLock ()
+	{
+		bool b = Mathf.Round(CameraShake.instance.transform.localRotation.eulerAngles.y) == 0 ||
+		         Mathf.Round(CameraShake.instance.transform.localRotation.eulerAngles.y) == 180;
+
+		return b ? RigidbodyConstraints.FreezePositionZ : RigidbodyConstraints.FreezePositionX; 
+
+	}
+
+	public void UpdateMovementRestirctions (float cameraYAngle)
+	{
+		if (Mathf.RoundToInt(cameraYAngle) == 180 || Mathf.RoundToInt(cameraYAngle) == 0) {
+			//Before we do this, make sure to change rigidbody velocities 
+			m_Rigidbody.constraints =
+				RigidbodyConstraints.FreezeRotationX |
+			RigidbodyConstraints.FreezeRotationY |
+			RigidbodyConstraints.FreezePositionZ |
+			RigidbodyConstraints.FreezeRotationZ;
+		}
+		else {
+			m_Rigidbody.constraints =
+			RigidbodyConstraints.FreezeRotationX |
+			RigidbodyConstraints.FreezeRotationY |
+			RigidbodyConstraints.FreezePositionX |
+			RigidbodyConstraints.FreezeRotationZ;
+		}
+	}
+
+	void HandleGroundedMovement (bool crouch, int jump)
 	{			
-		// check whether conditions are right to allow a jump:
-		if (jump && !crouch && (m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded") || extraJump)) {
-			// jump!				
-			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
+		// check whether conditions are right to allow a jump and if so, do a jump.
+		if (jump > 0 && !crouch && (m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded") || extraJump)) {
+			Debug.Log(jump);
+			switch (jump) {
+				case 1:
+					m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
+					break;
+				case 2:
+					//if this is a super jump
+					m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x * 1.25f, m_JumpPower * 2, m_Rigidbody.velocity.z * 1.25f);
+					DoACrater(transform.position + Vector3.down);
+					break;
+			}
 			jumpStartPosition = transform.position;
 			m_IsGrounded = false;
 			m_Animator.applyRootMotion = false;
@@ -289,11 +374,15 @@ public class ThirdPersonCharacter : MonoBehaviour
 		}
 	}
 
+	#endregion
+
+	#region everything to with landing / being on the ground
+
 	IEnumerator CrouchRoll (float speed, Vector3 position)
 	{
 		Vector3 startRot = rollRotationObject.localRotation.eulerAngles;
 		transform.position += Vector3.down * 0.1f;
-		m_Rigidbody.constraints = RigidbodyConstraints.FreezePositionZ |
+		m_Rigidbody.constraints = AxisLock() |
 		RigidbodyConstraints.FreezePositionY;
 
 		GetComponent<CapsuleCollider>().enabled = false;
@@ -306,6 +395,8 @@ public class ThirdPersonCharacter : MonoBehaviour
 			lerpy += Time.deltaTime * 2;
 			rollRotationObject.RotateAround(waistline.transform.position,rollRotationObject.right,Time.deltaTime * 360 * 2);
 			//Need to take gravity into account, as well as player input to slow down
+
+			//This needs to take player rotation into account.
 			transform.Translate(Vector3.right * speed * Time.deltaTime,Space.World);
 
 			float h = CrossPlatformInputManager.GetAxis("Horizontal");
@@ -335,9 +426,9 @@ public class ThirdPersonCharacter : MonoBehaviour
 		m_Animator.SetBool("OnGround",Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,2.0f));
 
 		m_Rigidbody.constraints =
-			RigidbodyConstraints.FreezeRotationX |
+			AxisLock() |
+		RigidbodyConstraints.FreezeRotationX |
 		RigidbodyConstraints.FreezeRotationY |
-		RigidbodyConstraints.FreezePositionZ |
 		RigidbodyConstraints.FreezeRotationZ;
 
 		transform.position = new Vector3 (transform.position.x, position.y, transform.position.z);
@@ -416,6 +507,19 @@ public class ThirdPersonCharacter : MonoBehaviour
 		allowCraters = b;
 	}
 
+
+	void DoACrater (Vector3 _pos)
+	{
+		vibration = 0.5f;
+		CameraShake.instance.shakeDuration += 0.25f;
+		CameraShake.instance.shakeAmount = .5f; 
+		SoundManager.instance.playSound(stompLandingSound,1,Random.Range(0.9f,1.1f));
+		CraterManager.instance.SpawnCrater(_pos + (Vector3.up * Random.Range(0.005f,0.025f)));
+		footDust [2].transform.position = transform.position + (Vector3.up * 0.2f);
+		footDust [2].Emit(30);
+	}
+
+
 	#endregion
 
 	void landing (Vector3 position)
@@ -430,14 +534,7 @@ public class ThirdPersonCharacter : MonoBehaviour
 
 		if (allowCraters && Mathf.Abs(m_Rigidbody.velocity.y) > craterSpeed) {
 			//Make a cater effect
-			vibration = 0.5f;
-			CameraShake.instance.shakeDuration += 0.25f;
-			CameraShake.instance.shakeAmount = .5f; 
-			SoundManager.instance.playSound(stompLandingSound,1,Random.Range(0.9f,1.1f));
-			CraterManager.instance.SpawnCrater(position + (Vector3.up * Random.Range(0.005f,0.025f)));
-			//CraterManager.instance.SpawnCrater(transform.position + Vector3.up * 0.1f);
-			footDust [2].transform.position = transform.position + (Vector3.up * 0.2f);
-			footDust [2].Emit(30);
+			DoACrater(position);
 		}
 		else if (position.y < jumpStartPosition.y) {
 				if (!rolling) {

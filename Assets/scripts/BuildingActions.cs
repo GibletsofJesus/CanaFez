@@ -27,7 +27,7 @@ public class BuildingActions : MonoBehaviour
 
 	IEnumerator flashRoof ()
 	{
-		while (!ThirdPersonCharacter.instance.isGrounded())
+		while (!PlayerCharacter.instance.isGrounded())
 			yield return null;
 
 		if (flashSound) {
@@ -56,7 +56,7 @@ public class BuildingActions : MonoBehaviour
 		}
 		if (associatedBuilding) {
 			if (associatedBuilding.spawner.gameObject.activeSelf)
-				ThirdPersonCharacter.instance.lastSpawner = associatedBuilding.spawner;
+				PlayerCharacter.instance.lastSpawner = associatedBuilding.spawner;
 		}
 	}
 }

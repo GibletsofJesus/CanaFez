@@ -23,6 +23,8 @@ public class WorldGen : MonoBehaviour
 	}
 
 	public static WorldGen instance;
+	[HideInInspector]
+	public bool generating;
 
 	[Header("Building settings")]
 	[SerializeField]
@@ -56,7 +58,6 @@ public class WorldGen : MonoBehaviour
 	{
 		instance = this;
 		StartCoroutine(GenerateCity());
-		CityNameUi.text = GenerateSillyName();
 	}
 
 	void Update ()
@@ -82,12 +83,13 @@ public class WorldGen : MonoBehaviour
 
 	public IEnumerator GenerateCity ()
 	{
+		generating = true;
 		GameObject allBuildings = new GameObject ("Buildings");
 		allBuildings.transform.parent = transform;
 		allBuildings.transform.localScale = Vector3.one;
 		allBuildings.transform.localPosition = Vector3.zero;
 
-		ThirdPersonCharacter.instance.lastSpawner = null;
+		PlayerCharacter.instance.lastSpawner = null;
 		worldObjects.rotation = Quaternion.Euler(Vector3.zero);
 		foreach (Building b in buildings) {
 			Destroy(b.gameObject);
@@ -155,12 +157,13 @@ public class WorldGen : MonoBehaviour
 		#endregion
 
 		//Fill in the rest of the city
-		FillInAvailableSquares(allBuildings.transform);
+		yield return StartCoroutine(FillInAvailableSquares(allBuildings.transform));
 		if (generateRoads)
 			StartCoroutine(RoadPlacement());
 		foreach (Building b in buildings) {
 			//b.gameObject.SetActive(false);
 		}
+		generating = false;
 	}
 
 	IEnumerator RoadPlacement ()
@@ -282,7 +285,7 @@ public class WorldGen : MonoBehaviour
 	{
 		#region Determine spawn position of building
 		Vector3 _spawnPos = new Vector3 (_posX * (buildingChunkSize * 3), 
-			                    Random.Range(-heightVaraiation,heightVaraiation), 
+			                    Mathf.Round(Random.Range(-heightVaraiation,heightVaraiation)), 
 			                    -_posY * (buildingChunkSize * 3));
 
 		_spawnPos += transform.position;
@@ -307,7 +310,6 @@ public class WorldGen : MonoBehaviour
 		}
 		#endregion
 
-		_newBuilding.name = _posX + "," + _posY + ((prefab == buildingPrefabs [0].buildingObject) ? "" : "  " + prefab.name);
 		_newBuilding.transform.position = _newBuilding.standardPos + _newBuilding.rotOffset;
 		buildings.Add(_newBuilding);
 
@@ -374,6 +376,13 @@ public class WorldGen : MonoBehaviour
 		}
 		#endregion
 
+		Vector3 centre = transform.position
+		                 + new Vector3 (buildingChunkSize * citySizeX * 1.5f, 0, -buildingChunkSize * citySizeY * 1.5f);
+		//See if this is outside a circle thing
+		if (Vector3.Distance(centre,
+			    _newBuilding.transform.position) > buildingChunkSize * citySizeX * 1.5f)
+			_newBuilding.gameObject.SetActive(false);
+
 		return _newBuilding;
 	}
 
@@ -392,7 +401,7 @@ public class WorldGen : MonoBehaviour
 		}
 	}
 
-	void FillInAvailableSquares (Transform _parent)
+	IEnumerator FillInAvailableSquares (Transform _parent)
 	{
 		Vector3 prevPos = Vector3.zero;
 		List<Animator> spawners = new List<Animator> ();
@@ -421,8 +430,9 @@ public class WorldGen : MonoBehaviour
 			}
 		}
 
-		if (!ThirdPersonCharacter.instance.lastSpawner)
-			ThirdPersonCharacter.instance.lastSpawner = spawners [spawners.Count / 2];
+		if (!PlayerCharacter.instance.lastSpawner)
+			PlayerCharacter.instance.lastSpawner = spawners [spawners.Count / 2];
+		yield return null;
 	}
 
 	#endregion
@@ -447,5 +457,4 @@ public class WorldGen : MonoBehaviour
 	}
 
 	#endregion
-
 }

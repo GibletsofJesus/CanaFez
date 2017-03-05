@@ -7,16 +7,16 @@ public class CraterZone : MonoBehaviour
 	
 	void OnTriggerEnter (Collider col)
 	{
-		ThirdPersonCharacter.instance.SetCraters(true);
+		PlayerCharacter.instance.SetCraters(true);
 	}
 
 	void OnTriggerStay (Collider col)
 	{
-		ThirdPersonCharacter.instance.SetCraters(true);
+		PlayerCharacter.instance.SetCraters(true);
 	}
 
 	void OnTriggerExit (Collider col)
 	{
-		ThirdPersonCharacter.instance.SetCraters(false);
+		PlayerCharacter.instance.SetCraters(false);
 	}
 }
