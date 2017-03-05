@@ -352,36 +352,39 @@ public class WorldGen : MonoBehaviour
 		}
 		#endregion
 
-		#region Make sure we don't place a building here
-		for (int x = 0; x < _sizeX; x++) {
-			for (int y = 0; y < _sizeY; y++) {
-				switch (rot) {
-					case 0:
-						availableSquares [_posX + x, _posY + y] = false;
-						break;
-					case 1:
-						availableSquares [_posX - y, _posY + x] = false;
-						break;
-					case 2:
-						availableSquares [_posX - x, _posY - y] = false;
-						break;
-					case 3:
-						availableSquares [_posX + y, _posY - x] = false;
-						break;
-					default:
-						Debug.Log(rot);
-						break;
-				}
-			}
-		}
-		#endregion
-
 		Vector3 centre = transform.position
 		                 + new Vector3 (buildingChunkSize * citySizeX * 1.5f, 0, -buildingChunkSize * citySizeY * 1.5f);
 		//See if this is outside a circle thing
-		if (Vector3.Distance(centre,
-			    _newBuilding.transform.position) > buildingChunkSize * citySizeX * 1.5f)
+		float requiredDistance = buildingChunkSize * citySizeX * (1.5f + Random.Range(-0.2f,0.2f) - ((_sizeX * _sizeY) / 15));
+
+		if (Vector3.Distance(centre,_newBuilding.transform.position) > requiredDistance)
 			_newBuilding.gameObject.SetActive(false);
+		else {
+			#region Make sure we don't place a building here
+			for (int x = 0; x < _sizeX; x++) {
+				for (int y = 0; y < _sizeY; y++) {
+					switch (rot) {
+						case 0:
+							availableSquares [_posX + x, _posY + y] = false;
+							break;
+						case 1:
+							availableSquares [_posX - y, _posY + x] = false;
+							break;
+						case 2:
+							availableSquares [_posX - x, _posY - y] = false;
+							break;
+						case 3:
+							availableSquares [_posX + y, _posY - x] = false;
+							break;
+						default:
+							Debug.Log(rot);
+							break;
+					}
+				}
+			}
+			#endregion
+
+		}
 
 		return _newBuilding;
 	}
