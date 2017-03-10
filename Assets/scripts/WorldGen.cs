@@ -44,11 +44,17 @@ public class WorldGen : MonoBehaviour
 
 	[Header("Roads")]
 	public bool generateRoads;
-	roadIntersections[,] roadPoints;
+	[SerializeField]
+	float m_GroundLevel;
+	/*roadIntersections[,] roadPoints;
 	[SerializeField]
 	GameObject[] intersectionPrefabs;
 	[SerializeField]
-	GameObject roadPrefab;
+	GameObject roadPrefab;*/
+
+	[Header("Parks")]
+	[SerializeField]
+	GameObject[] parkPrefabs;
 
 	[Header("UI reference(s)")]
 	[SerializeField]
@@ -97,13 +103,13 @@ public class WorldGen : MonoBehaviour
 		buildings.Clear();
 		ResetSquares();
 
-		roadPoints = new roadIntersections[citySizeX + 1,citySizeY + 1];
+		/*roadPoints = new roadIntersections[citySizeX + 1,citySizeY + 1];
 
 		for (int y = 0; y < citySizeY + 1; y++) {
 			for (int x = 0; x < citySizeX + 1; x++) {
 				roadPoints [x, y] = new roadIntersections ();
 			}
-		}
+		}*/
 
 		#region parks
 		//Place me some parks bb
@@ -114,6 +120,25 @@ public class WorldGen : MonoBehaviour
 				availableSquares [i, j] = false;
 			}
 		}
+
+		//Now create a cube where we want the park
+		Vector3 _spawnPos = new Vector3 (
+			                    (startx + (((float)parkX - .25f) / 2f)) * (buildingChunkSize * 3f), 
+			                    -32.5f, 
+			                    -(starty + (((float)parkY - .25f) / 2f)) * (buildingChunkSize * 3f));
+		GameObject g = Instantiate(parkPrefabs [0],transform.position + _spawnPos,Quaternion.Euler(Vector3.zero),transform);
+
+		_spawnPos = new Vector3 (startx * (buildingChunkSize * 3f), 
+			-33, 
+			-(starty * (buildingChunkSize * 3f)));
+
+		
+		g.name = "park norm + spawnpos";
+		//g.transform.position = transform.position + _spawnPos + OOFset;
+		g.transform.localScale = new Vector3 ((parkX - 0.25f) * buildingChunkSize * 1.5f, .5f, (parkY - .25f) * buildingChunkSize * 1.5f);
+		//Then fill that place with trees
+
+
 		#endregion
 
 		#region place large buildings
@@ -169,6 +194,7 @@ public class WorldGen : MonoBehaviour
 	IEnumerator RoadPlacement ()
 	{
 		yield return null;
+		/*
 		GameObject allRoads = new GameObject ("Roads");
 		allRoads.transform.parent = transform;
 		allRoads.transform.localScale = Vector3.one;
@@ -233,13 +259,10 @@ public class WorldGen : MonoBehaviour
 					_newSegment.transform.localScale = Vector3.right * 0.75f + Vector3.one;
 					_newSegment.transform.localPosition += (Vector3.right * 5);
 				}
-				/*Debug.DrawLine(_spawnPos,_spawnPos + (Vector3.left * 12.5f / 2),Color.red,roadPoints [x, y].up ? 50f : 0);
-				Debug.DrawLine(_spawnPos,_spawnPos + (Vector3.right * 12.5f / 2),Color.red,roadPoints [x, y].down ? 50f : 0);
-				Debug.DrawLine(_spawnPos,_spawnPos + (Vector3.forward * 12.5f / 2),Color.red,roadPoints [x, y].left ? 50f : 0);
-				Debug.DrawLine(_spawnPos,_spawnPos + (Vector3.back * 12.5f / 2),Color.red,roadPoints [x, y].right ? 50f : 0);*/
 			}
-		}
+		}*/
 	}
+
 
 	#region Building placement
 
@@ -314,7 +337,7 @@ public class WorldGen : MonoBehaviour
 		buildings.Add(_newBuilding);
 
 		#region do road things
-		for (int x = 0; x < _sizeX + 1; x++) {
+		/*for (int x = 0; x < _sizeX + 1; x++) {
 			for (int y = 0; y < _sizeY + 1; y++) {
 
 				int xRotOffset = 0, yRotOffset = 0;
@@ -349,7 +372,8 @@ public class WorldGen : MonoBehaviour
 				roadPoints [xRotOffset, yRotOffset].up = ((y == 0 || y == _sizeY) && x != 0
 					? true : roadPoints [xRotOffset, yRotOffset].up);
 			}
-		}
+		}*/
+		_newBuilding.SetPavementHeight(m_GroundLevel);
 		#endregion
 
 		Vector3 centre = transform.position

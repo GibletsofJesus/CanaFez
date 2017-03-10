@@ -55,12 +55,15 @@ public class PlayerCharacter : MonoBehaviour
 	[Header("All the other shit")]
 	[SerializeField]
 	Transform startingPosition;
+	[SerializeField]
+	Transform shadow;
 
 	[SerializeField]
 	Transform[] footsies;
 	bool[] footGrounded = { true, true };
 	[SerializeField]
 	ParticleSystem[] footDust;
+	public float runningFXSpeed = 5;
 	public bool respawning;
 	[HideInInspector]
 	public Animator lastSpawner;
@@ -169,6 +172,13 @@ public class PlayerCharacter : MonoBehaviour
 
 	public void Move (Vector3 move, bool crouch)
 	{
+		if (shadow) {
+			RaycastHit hitInfo;
+			Physics.Raycast(transform.position + Vector3.up,Vector3.down,out hitInfo,1000);
+			shadow.position = hitInfo.point + (Vector3.up / 10f);
+			shadow.localRotation = Quaternion.Euler(90,transform.localRotation.eulerAngles.y,0);
+		}
+		//Cap forward /backward movement dependant on axis
 		int jump = 0;
 		if (CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded)
 			jump = 1;
@@ -186,10 +196,9 @@ public class PlayerCharacter : MonoBehaviour
 			bool dir = lastSpawner.transform.localRotation.eulerAngles.y < 0;
 
 			dir = (int)lastSpawner.transform.localRotation.eulerAngles.y >= Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation());
-			dir = (int)lastSpawner.transform.localRotation.eulerAngles.y == 90 && Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation()) == 90 ? false : dir;
+			//dir = (int)lastSpawner.transform.localRotation.eulerAngles.y == 90 && Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation()) == 90 ? false : dir;
 
-
-			move = lastSpawner.transform.forward * 0.7f * (dir ? 1f : -1f);
+			move = lastSpawner.transform.right * 0.7f * (dir ? -1f : 1f);
 			//Debug.Log("Resultant move " + move);
 			//Debug.Log("World roation: " + PerspectiveChanger.instance.GetWorldOrientation());
 			crouch = false;
@@ -228,7 +237,7 @@ public class PlayerCharacter : MonoBehaviour
 				}
 
 				//Dust poofs on the feet for running fast
-				if (Mathf.Abs(m_Rigidbody.velocity.x) > 6)
+				if (Mathf.Abs(m_Rigidbody.velocity.magnitude) > runningFXSpeed)
 					checkFootCollision();
 			}
 			CheckGroundStatus();
@@ -253,7 +262,10 @@ public class PlayerCharacter : MonoBehaviour
 	void HandleAirborneMovement ()
 	{
 		//Allow strafing
-		float h = -CrossPlatformInputManager.GetAxis("Horizontal");
+		float h = CrossPlatformInputManager.GetAxis("Horizontal");
+
+		if (PerspectiveChanger.instance.GetWorldOrientation() > 130)
+			h *= -1;
 
 		Vector3 vel = m_Rigidbody.velocity;
 
@@ -285,19 +297,13 @@ public class PlayerCharacter : MonoBehaviour
 		m_Rigidbody.velocity = vel;
 
 		if (CrossPlatformInputManager.GetButtonUp("Jump")) {
-			Debug.Log("button up");
 			extraJump = true;
 		}
 
 		if (CrossPlatformInputManager.GetButtonDown("Jump") && extraJump) {
-			Debug.Log("Double jump");
 			extraJump = false;
 			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
-		}
-		else if (CrossPlatformInputManager.GetButton("Jump")) {
-				Debug.Log("No Double jump for you");
-
-			}
+		}			
 		// apply extra gravity from multiplier:
 		Vector3 extraGravityForce = (Physics.gravity * m_GravityMultiplier) - Physics.gravity;
 		m_Rigidbody.AddForce(extraGravityForce);
@@ -356,7 +362,6 @@ public class PlayerCharacter : MonoBehaviour
 	{			
 		// check whether conditions are right to allow a jump and if so, do a jump.
 		if (jump > 0 && !crouch && (m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded") || extraJump)) {
-			Debug.Log(jump);
 			switch (jump) {
 				case 1:
 					m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
@@ -537,7 +542,7 @@ public class PlayerCharacter : MonoBehaviour
 			DoACrater(position);
 		}
 		else if (position.y < jumpStartPosition.y) {
-				if (!rolling) {
+				if (!rolling && !respawning) {
 					rolling = true;
 					StartCoroutine(CrouchRoll(m_Rigidbody.velocity.x,position));
 				}

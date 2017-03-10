@@ -6,8 +6,15 @@ public class Building : MonoBehaviour
 {
 	public Vector3 rotOffset, standardPos;
 	[SerializeField]
+	Transform pavement;
+	[SerializeField]
 	public Animator spawner;
 	public float result;
+
+	public void SetPavementHeight (float f)
+	{
+		pavement.position = new Vector3 (pavement.position.x, f, pavement.position.z);
+	}
 
 	public Animator SetupSpawner (bool respawn)
 	{

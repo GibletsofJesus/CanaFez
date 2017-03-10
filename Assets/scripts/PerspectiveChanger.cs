@@ -41,16 +41,7 @@ public class PerspectiveChanger : MonoBehaviour
 				PlayerCharacter.instance.UpdateMovementRestirctions(CameraObject.transform.localRotation.eulerAngles.y);
 				rotationAmount = 0;
 
-				Time.timeScale = Input.GetKey(KeyCode.Joystick1Button4) ? 0 : 1;
-				if (!Input.GetKey(KeyCode.Joystick1Button4)) {
-					Vector3 v1 = Vector3.zero;
-					v1.x = prevVel.z;
-					v1.y = m_Rigidbody.velocity.y;
-					v1.z = -prevVel.x;
-
-					m_Rigidbody.velocity = v1;
-					m_Rigidbody.angularVelocity = prevAngVel;
-				}
+				checkFinishRotating(true);
 			}
 		}
 		else if (rotationAmount < 0) {
@@ -66,19 +57,47 @@ public class PerspectiveChanger : MonoBehaviour
 					PlayerCharacter.instance.UpdateMovementRestirctions(CameraObject.transform.localRotation.eulerAngles.y);
 					rotationAmount = 0;
 
-					Time.timeScale = Input.GetKey(KeyCode.Joystick1Button4) ? 0 : 1;
-					
-					if (!Input.GetKey(KeyCode.Joystick1Button4)) {
-						Vector3 v1 = Vector3.zero;
-						v1.x = -prevVel.z;
-						v1.y = m_Rigidbody.velocity.y;
-						v1.z = prevVel.x;
-
-						m_Rigidbody.velocity = v1;
-						m_Rigidbody.angularVelocity = prevAngVel;
-					}
+					checkFinishRotating(false);
 				}
 			}
+	}
+
+	void checkFinishRotating (bool dir)
+	{
+		//If we're not finished, register input and make apporopriate andjustments to velocity.
+		Time.timeScale = Input.GetKey(KeyCode.Joystick1Button4) || Input.GetKey(KeyCode.Joystick1Button5) ? 0 : 1;
+		if (Input.GetKey(KeyCode.Joystick1Button5) || Input.GetKey(KeyCode.Joystick1Button4)) {
+			Vector3 v1 = Vector3.zero;
+			v1.x = (Input.GetKey(KeyCode.Joystick1Button4) ? 1 : -1) * prevVel.z;
+			v1.y = m_Rigidbody.velocity.y;
+			v1.z = (Input.GetKey(KeyCode.Joystick1Button4) ? -1 : 1) * prevVel.x;
+
+			m_Rigidbody.velocity = v1;
+			m_Rigidbody.angularVelocity = prevAngVel;
+			prevVel = v1;
+		}
+		else {
+
+			float wo = GetWorldOrientation();
+
+			Debug.Log(wo);
+			Debug.Log(dir);
+
+			//only really works when original dir is true, otherwise should be the other way
+			bool newdir = PlayerCharacter.instance.movingOnXAxis() ? false : true;
+
+			if (!dir)
+				newdir = !newdir;
+
+			Vector3 v1 = Vector3.zero;
+			v1.x = -prevVel.z * (newdir ? 1 : -1);
+			v1.y = m_Rigidbody.velocity.y;
+			v1.z = -prevVel.x * (newdir ? 1 : -1);
+
+			m_Rigidbody.velocity = v1;
+			m_Rigidbody.angularVelocity = prevAngVel;
+			prevVel = v1;
+		}
 	}
 
 	bool forceRotation;
@@ -155,8 +174,6 @@ public class PerspectiveChanger : MonoBehaviour
 					returnMe = i;
 				}
 			}
-
-			Debug.Log("Input: " + f + "   output: " + returnMe * 90);
 
 			return returnMe * 90;
 		}
@@ -262,6 +279,7 @@ public class PerspectiveChanger : MonoBehaviour
 		if (clampedPos.y < -15)
 			clampedPos.y = -15;
 		if (rotationAmount == 0) {
+			//Snap cam into offset position when stopping rotating 
 			idealPosition = Vector3.Lerp(CameraObject.position,clampedPos + adjustedOffset,Time.deltaTime * lerpSpeed);
 			CameraObject.position = idealPosition;
 		}
