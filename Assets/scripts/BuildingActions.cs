@@ -12,7 +12,7 @@ public class BuildingActions : MonoBehaviour
 	[SerializeField]
 	Building associatedBuilding;
 	[SerializeField]
-	Renderer roofObject;
+	Renderer[] roofObjects;
 	[SerializeField]
 	Texture2D[] textures;
 	[SerializeField]
@@ -21,7 +21,7 @@ public class BuildingActions : MonoBehaviour
 	public void Trigger ()
 	{
 		triggered = true;
-		if (roofObject)
+		if (roofObjects.Length > 0)
 			StartCoroutine(flashRoof());
 	}
 
@@ -35,9 +35,11 @@ public class BuildingActions : MonoBehaviour
 		}
 
 		for (int i = 0; i < 2; i++) {
-			roofObject.material.mainTexture = textures [1];
+			foreach (Renderer r in roofObjects)
+				r.material.mainTexture = textures [1];
 			yield return new WaitForSeconds (0.05f);
-			roofObject.material.mainTexture = textures [0];
+			foreach (Renderer r in roofObjects)
+				r.material.mainTexture = textures [0];
 			yield return new WaitForSeconds (0.05f);
 		}
 	}
@@ -48,7 +50,7 @@ public class BuildingActions : MonoBehaviour
 			foreach (BuildingActions b in associatedTriggers) {
 				b.Trigger();
 			}
-			if (roofObject) {
+			if (roofObjects.Length > 0) {
 				StartCoroutine(flashRoof());
 			}
 			minimapHighlight.SetActive(true);

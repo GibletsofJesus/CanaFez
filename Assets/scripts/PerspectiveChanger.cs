@@ -80,8 +80,8 @@ public class PerspectiveChanger : MonoBehaviour
 
 			float wo = GetWorldOrientation();
 
-			Debug.Log(wo);
-			Debug.Log(dir);
+			//Debug.Log(wo);
+			//Debug.Log(dir);
 
 			//only really works when original dir is true, otherwise should be the other way
 			bool newdir = PlayerCharacter.instance.movingOnXAxis() ? false : true;

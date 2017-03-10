@@ -27,6 +27,7 @@ public class PlayerCharacter : MonoBehaviour
 
 	Rigidbody m_Rigidbody;
 	Animator m_Animator;
+	[SerializeField]
 	bool m_IsGrounded, m_Crouching;
 	const float k_Half = 0.5f;
 	float m_TurnAmount, m_ForwardAmount, m_CapsuleHeight, m_OrigGroundCheckDistance;
@@ -41,10 +42,20 @@ public class PlayerCharacter : MonoBehaviour
 	bool doubleJump;
 	bool extraJump;
 
+	[Header("Jupming")]
+	[SerializeField]
+	Transform jumpBar;
+	float jumpTimer = 0, maxJumpTimer = 2.5f;
+	Vector3 jumpStartPosition;
+	public float airbourneSpeedMultiplier, maxStrafeSpeed = 20;
+
 	[Header("Rolling related")]
 	public bool rolling;
 	[SerializeField]
 	Transform waistline, rollRotationObject;
+	[SerializeField]
+	float minRollSpeed;
+	//The minimum speed required to do an roll
 
 	[Header("Audio")]
 	[SerializeField]
@@ -67,9 +78,10 @@ public class PlayerCharacter : MonoBehaviour
 	public bool respawning;
 	[HideInInspector]
 	public Animator lastSpawner;
+	//Vertical speed modifiers
+	[SerializeField]
+	float newMaxVertSpeed, speedAmp;
 
-	Vector3 jumpStartPosition;
-	public float airbourneSpeedMultiplier, maxStrafeSpeed = 20;
 	float vibration;
 
 	void Start ()
@@ -124,12 +136,9 @@ public class PlayerCharacter : MonoBehaviour
 		respawning = false;
 		yield return new WaitForSeconds (0.45f);
 		SoundManager.instance.playSound(doorClose);
-		//Debug.Log("starting 1 sec wait");
 		//Move forward a little bit
 		//Then return control to player
 	}
-
-	float jumpTimer = 0;
 
 	void UpdateAnimator (Vector3 move)
 	{
@@ -167,9 +176,6 @@ public class PlayerCharacter : MonoBehaviour
 
 	#region movement
 
-	[SerializeField]
-	float newMaxVertSpeed, speedAmp;
-
 	public void Move (Vector3 move, bool crouch)
 	{
 		if (shadow) {
@@ -179,18 +185,20 @@ public class PlayerCharacter : MonoBehaviour
 			shadow.localRotation = Quaternion.Euler(90,transform.localRotation.eulerAngles.y,0);
 		}
 		//Cap forward /backward movement dependant on axis
-		int jump = 0;
-		if (CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded)
-			jump = 1;
-		/*	jumpTimer += Time.deltaTime;
-			//GameObject.Find("Slider").GetComponent<Slider>().value = jumpTimer;
+		bool jump = false;
+		if (CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer < maxJumpTimer) {
+			jumpBar.localScale = new Vector3 (Mathf.Lerp(0,61,jumpTimer / maxJumpTimer), 1, 1);
+			jumpTimer += Time.deltaTime;
+			if (jumpTimer > maxJumpTimer) {
+				//m_IsGrounded = false;
+				jump = true;
+			}
 		}
-
-		if (CrossPlatformInputManager.GetButtonUp("Jump") && m_IsGrounded) {
-			jump = jumpTimer > 0.5f ? 2 : 1;
-		}
-		if (!CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded)
-			jumpTimer = 0;*/
+		else
+			jumpBar.localScale = new Vector3 (Mathf.Lerp(jumpBar.transform.localScale.x,0,Time.deltaTime * 3), 1, 1);
+		
+		if (!CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer > 0)
+			jump = true;
 
 		if (respawning && lastSpawner.GetCurrentAnimatorStateInfo(0).IsName("rooftopDoor_open")) {
 			bool dir = lastSpawner.transform.localRotation.eulerAngles.y < 0;
@@ -199,8 +207,6 @@ public class PlayerCharacter : MonoBehaviour
 			//dir = (int)lastSpawner.transform.localRotation.eulerAngles.y == 90 && Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation()) == 90 ? false : dir;
 
 			move = lastSpawner.transform.right * 0.7f * (dir ? -1f : 1f);
-			//Debug.Log("Resultant move " + move);
-			//Debug.Log("World roation: " + PerspectiveChanger.instance.GetWorldOrientation());
 			crouch = false;
 		}
 		else if (respawning) {
@@ -259,6 +265,8 @@ public class PlayerCharacter : MonoBehaviour
 		#endregion
 	}
 
+	float prevVertVel;
+
 	void HandleAirborneMovement ()
 	{
 		//Allow strafing
@@ -288,22 +296,15 @@ public class PlayerCharacter : MonoBehaviour
 					vel.x = -maxStrafeSpeed;
 			}
 		}
-
 		//If we're going down
 		if (vel.y < 0 && vel.y > -newMaxVertSpeed) {
 			vel.y -= Time.deltaTime * speedAmp;
 		}
-		//Debug.Log(vel.y);
 		m_Rigidbody.velocity = vel;
 
-		if (CrossPlatformInputManager.GetButtonUp("Jump")) {
-			extraJump = true;
-		}
+		if (vel.y < 0)
+			prevVertVel = m_Rigidbody.velocity.y;
 
-		if (CrossPlatformInputManager.GetButtonDown("Jump") && extraJump) {
-			extraJump = false;
-			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
-		}			
 		// apply extra gravity from multiplier:
 		Vector3 extraGravityForce = (Physics.gravity * m_GravityMultiplier) - Physics.gravity;
 		m_Rigidbody.AddForce(extraGravityForce);
@@ -358,20 +359,13 @@ public class PlayerCharacter : MonoBehaviour
 		}
 	}
 
-	void HandleGroundedMovement (bool crouch, int jump)
+	void HandleGroundedMovement (bool crouch, bool jump)
 	{			
 		// check whether conditions are right to allow a jump and if so, do a jump.
-		if (jump > 0 && !crouch && (m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded") || extraJump)) {
-			switch (jump) {
-				case 1:
-					m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
-					break;
-				case 2:
-					//if this is a super jump
-					m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x * 1.25f, m_JumpPower * 2, m_Rigidbody.velocity.z * 1.25f);
-					DoACrater(transform.position + Vector3.down);
-					break;
-			}
+		if (jump && !crouch && (m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded"))) {
+			
+			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower + (jumpTimer * 5), m_Rigidbody.velocity.z);
+
 			jumpStartPosition = transform.position;
 			m_IsGrounded = false;
 			m_Animator.applyRootMotion = false;
@@ -407,7 +401,6 @@ public class PlayerCharacter : MonoBehaviour
 			float h = CrossPlatformInputManager.GetAxis("Horizontal");
 			#if UNITY_EDITOR
 			// helper to visualise the ground check ray in the scene view
-			#endif
 			if (Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,2.0f)) {
 				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * 2),Color.red,5f);
 			}
@@ -415,6 +408,7 @@ public class PlayerCharacter : MonoBehaviour
 				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * 2),Color.blue,5f);
 				transform.Translate(Physics.gravity * Time.deltaTime,Space.World);
 			}
+			#endif
 				
 			//XOR
 			if (h >= 0 && speed >= 0 || h < 0 && speed < 0)
@@ -473,8 +467,9 @@ public class PlayerCharacter : MonoBehaviour
 		//if (Physics.Raycast(transform.position + (Vector3.up * 0.1f),Vector3.down,out hitInfo,m_GroundCheckDistance)) {
 		if (Physics.Raycast(transform.position + (Vector3.up * 0.1f),Vector3.down,out hitInfo,m_GroundCheckDistance)) {
 			m_GroundNormal = hitInfo.normal;
-			if (!m_IsGrounded)
+			if (!m_IsGrounded) {
 				landing(hitInfo.point);
+			}
 			m_IsGrounded = true;
 			m_Animator.applyRootMotion = false;
 		}
@@ -512,18 +507,16 @@ public class PlayerCharacter : MonoBehaviour
 		allowCraters = b;
 	}
 
-
 	void DoACrater (Vector3 _pos)
 	{
 		vibration = 0.5f;
 		CameraShake.instance.shakeDuration += 0.25f;
 		CameraShake.instance.shakeAmount = .5f; 
 		SoundManager.instance.playSound(stompLandingSound,1,Random.Range(0.9f,1.1f));
-		CraterManager.instance.SpawnCrater(_pos + (Vector3.up * Random.Range(0.005f,0.025f)));
+		CraterManager.instance.SpawnCrater(_pos + (Vector3.up * 2)); //used to be up + Random.Range(0.005f,0.025f)
 		footDust [2].transform.position = transform.position + (Vector3.up * 0.2f);
 		footDust [2].Emit(30);
 	}
-
 
 	#endregion
 
@@ -533,15 +526,16 @@ public class PlayerCharacter : MonoBehaviour
 		Debug.DrawLine(position - Vector3.forward,position + Vector3.forward,Color.blue,5f);
 		Debug.DrawLine(position - Vector3.left,position + Vector3.left,Color.blue,5f);
 		#endif
-		if (doubleJump) {			
-			extraJump = true;
-		}
 
-		if (allowCraters && Mathf.Abs(m_Rigidbody.velocity.y) > craterSpeed) {
+		jumpTimer = 0;
+
+		bool upToSpeed = Mathf.Abs(m_Rigidbody.velocity.x) > minRollSpeed || Mathf.Abs(m_Rigidbody.velocity.z) > minRollSpeed;
+
+		if (Mathf.Abs(prevVertVel) > craterSpeed) {
 			//Make a cater effect
 			DoACrater(position);
 		}
-		else if (position.y < jumpStartPosition.y) {
+		else if (position.y < jumpStartPosition.y && upToSpeed) {
 				if (!rolling && !respawning) {
 					rolling = true;
 					StartCoroutine(CrouchRoll(m_Rigidbody.velocity.x,position));
@@ -553,6 +547,7 @@ public class PlayerCharacter : MonoBehaviour
 			}
 
 		m_MoveSpeedMultiplier = 1 + ((m_MoveSpeedMultiplier - 1) / 2);
+		prevVertVel = 0;
 	}
 
 	#endregion
