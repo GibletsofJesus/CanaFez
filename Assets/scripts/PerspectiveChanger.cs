@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using UnityStandardAssets.CrossPlatformInput;
 using UnityEngine;
 
 public class PerspectiveChanger : MonoBehaviour
@@ -29,7 +30,10 @@ public class PerspectiveChanger : MonoBehaviour
 	{
 		if (rotationAmount > 0) {			
 			rotationAmount -= Time.unscaledDeltaTime * changeSpeed;
-			CameraObject.RotateAround(PlayerAvatar.position,Vector3.up,Time.unscaledDeltaTime * changeSpeed);
+			CameraObject.RotateAround(transform.position,Vector3.up,Time.unscaledDeltaTime * changeSpeed);
+
+			Quaternion q = Quaternion.AngleAxis(-Time.unscaledDeltaTime * changeSpeed,Vector3.up);
+			//addOFf = q * addOFf;
 
 			//Need to also rotate the player
 			Vector3 e = transform.localRotation.eulerAngles;
@@ -40,6 +44,10 @@ public class PerspectiveChanger : MonoBehaviour
 				CameraObject.localRotation = Quaternion.Euler(new Vector3 (0, RoundToNearest90Degrees(CameraObject.localRotation.eulerAngles.y), 0));
 				PlayerCharacter.instance.UpdateMovementRestirctions(CameraObject.transform.localRotation.eulerAngles.y);
 				rotationAmount = 0;
+				OffsetAdjustment();
+				lerpSpeed *= 10;
+				findIdealPositionAndSet();
+				lerpSpeed /= 10;
 
 				checkFinishRotating(true);
 			}
@@ -47,6 +55,9 @@ public class PerspectiveChanger : MonoBehaviour
 		else if (rotationAmount < 0) {
 				rotationAmount += Time.unscaledDeltaTime * changeSpeed;
 				CameraObject.RotateAround(PlayerAvatar.position,Vector3.down,Time.unscaledDeltaTime * changeSpeed);
+
+				Quaternion q = Quaternion.AngleAxis(Time.unscaledDeltaTime * changeSpeed,Vector3.up);
+				//addOFf = q * addOFf;
 
 				Vector3 e = transform.localRotation.eulerAngles;
 				e.y -= Time.unscaledDeltaTime * changeSpeed;
@@ -56,7 +67,6 @@ public class PerspectiveChanger : MonoBehaviour
 					CameraObject.localRotation = Quaternion.Euler(new Vector3 (0, RoundToNearest90Degrees(CameraObject.localRotation.eulerAngles.y), 0));
 					PlayerCharacter.instance.UpdateMovementRestirctions(CameraObject.transform.localRotation.eulerAngles.y);
 					rotationAmount = 0;
-
 					checkFinishRotating(false);
 				}
 			}
@@ -64,40 +74,13 @@ public class PerspectiveChanger : MonoBehaviour
 
 	void checkFinishRotating (bool dir)
 	{
-		//If we're not finished, register input and make apporopriate andjustments to velocity.
 		Time.timeScale = Input.GetKey(KeyCode.Joystick1Button4) || Input.GetKey(KeyCode.Joystick1Button5) ? 0 : 1;
-		if (Input.GetKey(KeyCode.Joystick1Button5) || Input.GetKey(KeyCode.Joystick1Button4)) {
-			Vector3 v1 = Vector3.zero;
-			v1.x = (Input.GetKey(KeyCode.Joystick1Button4) ? 1 : -1) * prevVel.z;
-			v1.y = m_Rigidbody.velocity.y;
-			v1.z = (Input.GetKey(KeyCode.Joystick1Button4) ? -1 : 1) * prevVel.x;
 
-			m_Rigidbody.velocity = v1;
-			m_Rigidbody.angularVelocity = prevAngVel;
-			prevVel = v1;
-		}
-		else {
+		Quaternion q = Quaternion.AngleAxis(rotationToComplete,Vector3.up);
 
-			float wo = GetWorldOrientation();
+		m_Rigidbody.velocity = q * prevVel;
 
-			//Debug.Log(wo);
-			//Debug.Log(dir);
-
-			//only really works when original dir is true, otherwise should be the other way
-			bool newdir = PlayerCharacter.instance.movingOnXAxis() ? false : true;
-
-			if (!dir)
-				newdir = !newdir;
-
-			Vector3 v1 = Vector3.zero;
-			v1.x = -prevVel.z * (newdir ? 1 : -1);
-			v1.y = m_Rigidbody.velocity.y;
-			v1.z = -prevVel.x * (newdir ? 1 : -1);
-
-			m_Rigidbody.velocity = v1;
-			m_Rigidbody.angularVelocity = prevAngVel;
-			prevVel = v1;
-		}
+		rotationToComplete = 0;
 	}
 
 	bool forceRotation;
@@ -113,6 +96,8 @@ public class PerspectiveChanger : MonoBehaviour
 		StartCoroutine(MoveCam());
 	}
 
+	#region intro sequence
+
 	public IEnumerator MoveCam ()
 	{
 		Animator _anim = CameraShake.instance.GetComponent<Animator>();
@@ -126,6 +111,9 @@ public class PerspectiveChanger : MonoBehaviour
 		yield return new WaitForSeconds (2f);
 		while (WorldGen.instance.generating)
 			yield return null;
+
+		PlayerCharacter.instance.transform.position = PlayerCharacter.instance.lastSpawner.transform.position + (Vector3.up * 3);
+
 		lerpSpeed = 2;
 		yield return new WaitForSeconds (1);
 		forceRotation = true;
@@ -143,14 +131,15 @@ public class PerspectiveChanger : MonoBehaviour
 		return Quaternion.Euler(new Vector3 (Mathf.Round(ea.x / 15) * 15, Mathf.Round(ea.y / 5) * 5, Mathf.Round(ea.z / 15) * 15));
 	}
 
+	#endregion
+
 	float ElLerpo = 0, minimapLerp = 0;
 	public Vector3 idealPosition;
 
 	public int minimapSnap;
-
 	bool bigMap;
 
-	float RoundToNearest90Degrees (float f)
+	public float RoundToNearest90Degrees (float f)
 	{
 		if (f < -45)
 			return -90;
@@ -182,133 +171,126 @@ public class PerspectiveChanger : MonoBehaviour
 	[SerializeField]
 	Vector3 minimapOffset;
 
+	Vector3 clampedPlayerPos ()
+	{
+		Vector3 returnMe = PlayerAvatar.position;
+		if (returnMe.y < -15)
+			returnMe.y = -15;
+
+		return returnMe;
+	}
+
+	void findIdealPositionAndSet ()
+	{
+		//Snap cam into offset position when stopping rotating 
+		//idealPosition = Vector3.Lerp(CameraObject.position,clampedPlayerPos() + adjustedOffset + addOFf,Time.unscaledDeltaTime * lerpSpeed);
+		idealPosition = Vector3.Lerp(CameraObject.position,clampedPlayerPos() + adjustedOffset,Time.unscaledDeltaTime * lerpSpeed);
+		CameraObject.position = idealPosition;
+	}
+
+	float PrevH = 1;
+
+	void OffsetAdjustment ()
+	{
+		adjustedOffset = offset;
+
+		Quaternion q = Quaternion.AngleAxis(CameraObject.localRotation.eulerAngles.y,Vector3.up);
+
+		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
+			//Still needs to be fixed a bit
+			float h = CrossPlatformInputManager.GetAxis("Horizontal");
+			if (h != 0 && lerpSpeed < 10) {
+				adjustedOffset.x *= h > 0 ? -1 : 1;
+				PrevH = h;
+			}
+			else {
+				adjustedOffset.x *= PrevH > 0 ? -1 : 1;
+			}
+		}
+		adjustedOffset = q * adjustedOffset;
+	}
+
 	void Update ()
 	{
-		#region minimap
-		if (Input.GetKeyDown(KeyCode.M)) {
-			bigMap = !bigMap;
-		}
-
-		if (bigMap) {
-			float v = Input.GetAxis("RSVertical");
-			float h = Input.GetAxis("RSHorizontal");
-			minimapOffset = new Vector3 (minimapOffset.x + (h * 5), 0, minimapOffset.z + (v * 5));
-		}
-		else {
-			minimapOffset = Vector3.Lerp(minimapOffset,Vector3.zero,Time.deltaTime * 3);
-		}
-
-		Vector3 startPos, endPos, startScale, endScale;
-		startPos = new Vector3 (14.4f, 9.6f, 0);
-		endPos = Vector3.zero + (Vector3.back * 0.01f);
-		startScale = new Vector3 (7.2f, 4.8f, 1);
-		endScale = new Vector3 (36, 24, 1);
-
-		minimapLerp += Time.deltaTime * (bigMap ? 1 : -1);
-
-		if (minimapLerp > 1)
-			minimapLerp = 1;
-		if (minimapLerp < 0)
-			minimapLerp = 0;
-
-		miniMapQuad.transform.localPosition = Vector3.Lerp(startPos,endPos,minimapLerp);
-		miniMapQuad.transform.localScale = Vector3.Lerp(startScale,endScale,minimapLerp);
-		minimapCam.GetComponent<Camera>().orthographicSize = (Mathf.Round(Mathf.Lerp(64,192,minimapLerp) / 8) * 8);
-
-		minimapCam.position = PlayerAvatar.transform.position + (Vector3.up * 137) + minimapOffset;
-		minimapCam.position = new Vector3 (
-			((int)minimapCam.transform.position.x / minimapSnap) * minimapSnap,
-			((int)minimapCam.transform.position.y / minimapSnap) * minimapSnap,
-			((int)minimapCam.transform.position.z / minimapSnap) * minimapSnap
-		);
-		#endregion
-
+		if (!instance)
+			instance = this;
+		
 		if (forceRotation) {
 			ElLerpo += Time.deltaTime;
 			accurateRot = Quaternion.Lerp(startRot,Quaternion.Euler(Vector3.down * 180),ElLerpo);
 			CameraObject.localRotation = snapRot();
 		}
 
-		#region offset adjustment
-
-		adjustedOffset = offset;
-
-		#region camera pan left/right
-		float camRot = Mathf.Round(CameraObject.localRotation.eulerAngles.y);
-
-		float selfRot = transform.rotation.eulerAngles.y;
-		if (selfRot > 180)
-			selfRot -= 360;
-		if (selfRot < -180)
-			selfRot += 360;
-			
-		if (camRot == 0 || camRot == 180) {
-			//Z locked
-
-			int adjuster = 1;
-			if (selfRot > 0 && selfRot < 180)
-				adjuster *= -1;
-
-			adjustedOffset.x = offset.x * adjuster * (camRot == 180 ? -1 : 1);
+		if (GameStateManager.instance.GetState() != GameStateManager.GameStates.STATE_PAUSE) {
+			OffsetAdjustment();
+			findIdealPositionAndSet();
 		}
-		else {
-			//X locked
+		
+		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
 
-			int adjuster = 1;
-			if (selfRot > 90)
-				adjuster *= -1;
-			if (selfRot < -90)
-				adjuster *= -1;
-			
-			adjustedOffset.z = offset.z * adjuster;
-		}
-		#endregion
-
-		int rot = Mathf.RoundToInt(CameraObject.transform.localRotation.eulerAngles.y);
-
-		if (rot != 0 && rot != 90) {
-			adjustedOffset.x *= -1;
-		}
-		else if (rot == -90 || rot == 0) {
-				adjustedOffset.z *= -1;
+			#region minimap
+			if (Input.GetKeyDown(KeyCode.M)) {
+				bigMap = !bigMap;
 			}
 
-		#endregion
+			if (bigMap) {
+				float v = Input.GetAxis("RSVertical");
+				float h = Input.GetAxis("RSHorizontal");
+				minimapOffset = new Vector3 (minimapOffset.x + (h * 5), 0, minimapOffset.z + (v * 5));
+			}
+			else {
+				minimapOffset = Vector3.Lerp(minimapOffset,Vector3.zero,Time.deltaTime * 3);
+			}
 
-		Vector3 clampedPos = PlayerAvatar.position;
-		if (clampedPos.y < -15)
-			clampedPos.y = -15;
-		if (rotationAmount == 0) {
-			//Snap cam into offset position when stopping rotating 
-			idealPosition = Vector3.Lerp(CameraObject.position,clampedPos + adjustedOffset,Time.deltaTime * lerpSpeed);
-			CameraObject.position = idealPosition;
+			Vector3 startPos, endPos, startScale, endScale;
+			startPos = new Vector3 (14.4f, 9.6f, 0);
+			endPos = Vector3.zero + (Vector3.back * 0.01f);
+			startScale = new Vector3 (7.2f, 4.8f, 1);
+			endScale = new Vector3 (36, 24, 1);
+
+			minimapLerp += Time.deltaTime * (bigMap ? 5 : -5);
+
+			if (minimapLerp > 1)
+				minimapLerp = 1;
+			if (minimapLerp < 0)
+				minimapLerp = 0;
+
+			miniMapQuad.transform.localPosition = Vector3.Lerp(startPos,endPos,minimapLerp);
+			miniMapQuad.transform.localScale = Vector3.Lerp(startScale,endScale,minimapLerp);
+			minimapCam.GetComponent<Camera>().orthographicSize = (Mathf.Round(Mathf.Lerp(64,192,minimapLerp) / 8) * 8);
+
+			minimapCam.position = PlayerAvatar.transform.position + (Vector3.up * 350) + minimapOffset;
+			minimapCam.position = new Vector3 (
+				((int)minimapCam.transform.position.x / minimapSnap) * minimapSnap,
+				((int)minimapCam.transform.position.y / minimapSnap) * minimapSnap,
+				((int)minimapCam.transform.position.z / minimapSnap) * minimapSnap
+			);
+			#endregion
+
+			ControllerInput();
 		}
-		else
-			idealPosition = CameraObject.position;
-
-		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY)
-			RotatePerspective();
-		ControllerInput();
-
+		RotatePerspective();
 	}
+
+	float rotationToComplete;
+	Vector3 addOFf;
+
 
 	//Rotation function used by the player
 	public void Rotate (bool dir)//false left, true right
 	{
 		if (clockwise)
 			dir = !dir;
-		
-		rotationAmount = 90 * (dir ? 1 : -1);
-		idealRotation += rotationAmount;
-		if (idealRotation < 0)
-			idealRotation += 360;
-		if (idealRotation > 360)
-			idealRotation -= 360;
 
+		//addOFf = CameraObject.position - (clampedPlayerPos() + adjustedOffset);
+
+		rotationAmount = 90 * (dir ? 1 : -1);
+
+		rotationToComplete = rotationAmount;
+		//findIdealPositionAndSet();
 		//Equivelant of pausing this ting
 		prevVel = m_Rigidbody.velocity;
 		prevAngVel = m_Rigidbody.angularVelocity;
-		//m_Rigidbody.isKinematic = true;
 		Time.timeScale = 0;
 	}
 
@@ -321,11 +303,6 @@ public class PerspectiveChanger : MonoBehaviour
 		if (additionalRotation == -270)
 			additionalRotation = 90;
 		rotationAmount += additionalRotation;
-		idealRotation += rotationAmount;
-		if (idealRotation < 0)
-			idealRotation += 360;
-		if (idealRotation > 360)
-			idealRotation -= 360;
 
 		Time.timeScale = rotationAmount == 0 ? 1 : 0;
 	}

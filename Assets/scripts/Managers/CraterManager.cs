@@ -22,6 +22,12 @@ public class CraterManager : MonoBehaviour
 		instance = this;	
 	}
 
+	void Update ()
+	{
+		if (!instance)
+			instance = this;
+	}
+
 	public void SpawnCrater (Vector3 spawnPos)
 	{
 		GameObject newCrater;

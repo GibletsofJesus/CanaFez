@@ -410,6 +410,9 @@ public class WorldGen : MonoBehaviour
 
 		}
 
+		//Doing this to setup the upgrade zone animator to manager
+		_newBuilding.SetupSpawner(false);
+
 		return _newBuilding;
 	}
 

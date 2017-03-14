@@ -11,6 +11,8 @@ public class Crater : MonoBehaviour
 
 	public void Setup (float newMaxLifetime)
 	{
+		Material m = new Material (proj.material);
+		proj.material = m;
 		transform.rotation = Quaternion.Euler(new Vector3 (90, Random.Range(-180,180), 0));
 		if (anim)
 			anim.Play("crater");

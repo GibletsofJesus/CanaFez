@@ -12,9 +12,14 @@ public class PlayerCharacter : MonoBehaviour
 {
 	public static PlayerCharacter instance;
 
-	#region all ThreadSafeAttribute prefab shiz
+	void Update ()
+	{
+		if (!instance)
+			instance = this;
+	}
 
-	//[Header("Movement stats")]
+	#region all the prefab shiz
+
 	float m_MovingTurnSpeed = 480;
 	float m_StationaryTurnSpeed = 720;
 	float m_JumpPower = 10f;
@@ -24,6 +29,14 @@ public class PlayerCharacter : MonoBehaviour
 	float m_MoveSpeedMultiplier = 1.2f, maxSpeedMultiplier = 4;
 	float m_AnimSpeedMultiplier = 1.2f;
 	float m_GroundCheckDistance = 0.3f;
+
+	[Header("Movement/state")]
+	public bool respawning;
+	//Vertical speed modifiers
+	[SerializeField]
+	float newMaxVertSpeed, speedAmp;
+	[HideInInspector]
+	public Animator lastSpawner;
 
 	Rigidbody m_Rigidbody;
 	Animator m_Animator;
@@ -37,6 +50,9 @@ public class PlayerCharacter : MonoBehaviour
 
 	#endregion
 
+	[SerializeField]
+	Transform startingPosition;
+
 	[Header("Upgrades")]
 	[SerializeField]
 	bool doubleJump;
@@ -45,9 +61,10 @@ public class PlayerCharacter : MonoBehaviour
 	[Header("Jupming")]
 	[SerializeField]
 	Transform jumpBar;
-	float jumpTimer = 0, maxJumpTimer = 2.5f;
+	float jumpTimer = 0;
 	Vector3 jumpStartPosition;
-	public float airbourneSpeedMultiplier, maxStrafeSpeed = 20;
+	[HideInInspector]
+	public float airbourneSpeedMultiplier = 3, maxStrafeSpeed = 15, maxJumpTimer = 2.5f;
 
 	[Header("Rolling related")]
 	public bool rolling;
@@ -63,26 +80,15 @@ public class PlayerCharacter : MonoBehaviour
 	[SerializeField]
 	AudioClip stompLandingSound, deathSound, doorOpen, doorClose;
 
-	[Header("All the other shit")]
-	[SerializeField]
-	Transform startingPosition;
+	[Header("Cool FX")]
 	[SerializeField]
 	Transform shadow;
-
 	[SerializeField]
 	Transform[] footsies;
 	bool[] footGrounded = { true, true };
 	[SerializeField]
 	ParticleSystem[] footDust;
-	public float runningFXSpeed = 5;
-	public bool respawning;
-	[HideInInspector]
-	public Animator lastSpawner;
-	//Vertical speed modifiers
-	[SerializeField]
-	float newMaxVertSpeed, speedAmp;
-
-	float vibration;
+	float runningFXSpeed = 5, vibration;
 
 	void Start ()
 	{
@@ -121,13 +127,10 @@ public class PlayerCharacter : MonoBehaviour
 		m_IsGrounded = true;
 		transform.position = lastSpawner.transform.position;
 
-		PerspectiveChanger pc = GetComponent<PerspectiveChanger>();
-		while (Vector3.Distance(transform.position + pc.offset,GetComponent<PerspectiveChanger>().idealPosition) > 19f) {
+		Quaternion q = Quaternion.AngleAxis(PerspectiveChanger.instance.GetWorldOrientation(),Vector3.up);
+		while (Vector3.Distance(transform.position + (q * PerspectiveChanger.instance.offset),PerspectiveChanger.instance.idealPosition) > 19f) {
 			yield return new WaitForEndOfFrame ();
 		}
-		//Replace me
-		//transform.rotation = Quaternion.Euler(Vector3.up * 90f);//* (lastSpawner.transform.localRotation.y > 0 ? 1f : -1f));
-
 		PerspectiveChanger.instance.Rotate(lastSpawner.transform.localRotation.eulerAngles.y,PerspectiveChanger.instance.GetWorldOrientation());
 
 		SoundManager.instance.playSound(doorOpen);
@@ -174,10 +177,31 @@ public class PlayerCharacter : MonoBehaviour
 		}
 	}
 
+	public void UnPause ()
+	{
+		m_Rigidbody.velocity = UnPausedVelocity;
+		m_Rigidbody.isKinematic = false;
+	}
+
+	Vector3 UnPausedVelocity;
+
+	public void Pause ()
+	{
+		UnPausedVelocity = m_Rigidbody.velocity;
+		m_Rigidbody.isKinematic = true;
+	}
+
 	#region movement
 
 	public void Move (Vector3 move, bool crouch)
 	{
+		//Stop the player from moving along another axis
+		if (movingOnXAxis()) {
+			move.z = 0;
+		}
+		else
+			move.x = 0;
+
 		if (shadow) {
 			RaycastHit hitInfo;
 			Physics.Raycast(transform.position + Vector3.up,Vector3.down,out hitInfo,1000);
@@ -251,10 +275,10 @@ public class PlayerCharacter : MonoBehaviour
 			m_TurnAmount = Mathf.Atan2(move.x,move.z);
 			m_ForwardAmount = move.z;
 
-			ApplyExtraTurnRotation();
 
 			// control and velocity handling is different when grounded and airborne:
-			if (m_IsGrounded) {//|| extraJump) {
+			if (m_IsGrounded) {
+				ApplyExtraTurnRotation();
 				HandleGroundedMovement(crouch,jump);
 			}
 			else {
@@ -277,7 +301,7 @@ public class PlayerCharacter : MonoBehaviour
 
 		Vector3 vel = m_Rigidbody.velocity;
 
-		//Almost there, just need to reverse the velocity added if we're facing certain directions
+		//Reverse the velocity added if we're facing certain directions
 		if (!movingOnXAxis()) {
 			if ((vel.z < maxStrafeSpeed && h > 0) || (vel.z > -maxStrafeSpeed && h < 0)) {
 				vel = new Vector3 (vel.x, vel.y, vel.z - (h * Time.deltaTime * airbourneSpeedMultiplier));
@@ -337,7 +361,6 @@ public class PlayerCharacter : MonoBehaviour
 		         Mathf.Round(CameraShake.instance.transform.localRotation.eulerAngles.y) == 180;
 
 		return b ? RigidbodyConstraints.FreezePositionZ : RigidbodyConstraints.FreezePositionX; 
-
 	}
 
 	public void UpdateMovementRestirctions (float cameraYAngle)
@@ -373,20 +396,21 @@ public class PlayerCharacter : MonoBehaviour
 		}
 	}
 
-	#endregion
-
 	#region everything to with landing / being on the ground
+
+	[SerializeField]
+	GameObject SpecialObject;
 
 	IEnumerator CrouchRoll (float speed, Vector3 position)
 	{
 		Vector3 startRot = rollRotationObject.localRotation.eulerAngles;
 		transform.position += Vector3.down * 0.1f;
-		m_Rigidbody.constraints = AxisLock() |
-		RigidbodyConstraints.FreezePositionY;
+		m_Rigidbody.constraints = RigidbodyConstraints.FreezePositionY;
 
 		GetComponent<CapsuleCollider>().enabled = false;
 		//Make sure animator is in the crouching state
 
+		Vector3 forwardDir = SpecialObject.transform.forward;
 		float lerpy = 0;
 		while (lerpy < 1) {
 			m_Animator.SetBool("OnGround",true);
@@ -396,23 +420,25 @@ public class PlayerCharacter : MonoBehaviour
 			//Need to take gravity into account, as well as player input to slow down
 
 			//This needs to take player rotation into account.
-			transform.Translate(Vector3.right * speed * Time.deltaTime,Space.World);
+			//and this isn't the way of doing it.
+			transform.Translate(forwardDir * speed * Time.deltaTime,Space.World);
 
 			float h = CrossPlatformInputManager.GetAxis("Horizontal");
 			#if UNITY_EDITOR
 			// helper to visualise the ground check ray in the scene view
 			if (Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,2.0f)) {
-				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * 2),Color.red,5f);
+				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * .5f),Color.red,3f);
 			}
 			else {
-				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * 2),Color.blue,5f);
+				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * .5f),Color.blue,3f);
 				transform.Translate(Physics.gravity * Time.deltaTime,Space.World);
 			}
 			#endif
-				
+
+			Debug.DrawLine(transform.position,transform.position + forwardDir,Color.green,15f);
 			//XOR
 			if (h >= 0 && speed >= 0 || h < 0 && speed < 0)
-				transform.Translate(Vector3.left * h * 5 * Time.deltaTime,Space.World);
+				transform.Translate(-forwardDir * h * 5 * Time.deltaTime,Space.World);
 			
 			yield return new WaitForEndOfFrame ();
 		}
@@ -538,7 +564,7 @@ public class PlayerCharacter : MonoBehaviour
 		else if (position.y < jumpStartPosition.y && upToSpeed) {
 				if (!rolling && !respawning) {
 					rolling = true;
-					StartCoroutine(CrouchRoll(m_Rigidbody.velocity.x,position));
+					StartCoroutine(CrouchRoll(movingOnXAxis() ? Mathf.Abs(m_Rigidbody.velocity.x) : Mathf.Abs(m_Rigidbody.velocity.z),position));
 				}
 			}
 			else {
@@ -549,6 +575,8 @@ public class PlayerCharacter : MonoBehaviour
 		m_MoveSpeedMultiplier = 1 + ((m_MoveSpeedMultiplier - 1) / 2);
 		prevVertVel = 0;
 	}
+
+	#endregion
 
 	#endregion
 
