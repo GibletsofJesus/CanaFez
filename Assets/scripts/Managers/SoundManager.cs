@@ -76,7 +76,7 @@ public class SoundManager : MonoBehaviour
 		}
 	}
 
-	public void playSound (AudioClip sound, float volume = 1, float pitch = 1)
+	public void playSound (AudioClip sound, float volume, float pitch)
 	{
 		int c = 0;
 		while (c < audioSrcs.Count) {
@@ -85,6 +85,26 @@ public class SoundManager : MonoBehaviour
 				audioSrcs [c].pitch = pitch * (SlowMo ? 0.1f : 1);
 				audioSrcs [c].PlayOneShot(sound);
 				audioSrcs [c].volume = volume * volumeMultiplayer;
+				break;
+			}
+			if (audioSrcs [c].isPlaying && c == (audioSrcs.Count - 1)) {
+				audioSrcs.Add(gameObject.AddComponent<AudioSource>());
+			}
+			else {
+				c++;
+			}
+		}
+	}
+
+	public void playSound (AudioClip sound)
+	{
+		int c = 0;
+		while (c < audioSrcs.Count) {
+			if (!audioSrcs [c].isPlaying) {
+				audioSrcs [c].clip = sound;
+				audioSrcs [c].pitch = 1 * (SlowMo ? 0.1f : 1);
+				audioSrcs [c].PlayOneShot(sound);
+				audioSrcs [c].volume = 1 * volumeMultiplayer;
 				break;
 			}
 			if (audioSrcs [c].isPlaying && c == (audioSrcs.Count - 1)) {

@@ -119,13 +119,16 @@ public class PlayerCharacter : MonoBehaviour
 	IEnumerator respawnEffect ()
 	{
 		respawning = true;
-
 		SoundManager.instance.playSound(deathSound);
 		yield return new WaitForSeconds (1);
+		m_Animator.SetBool("OnGround",m_IsGrounded);
+		m_Animator.SetBool("Crouch",false);
+		m_IsGrounded = true;
 		m_Rigidbody.velocity = Vector3.zero;
 		m_Rigidbody.angularVelocity = Vector3.zero;
-		m_IsGrounded = true;
+		yield return new WaitForSeconds (.01f);
 		transform.position = lastSpawner.transform.position;
+		yield return new WaitForSeconds (.5f);
 
 		Quaternion q = Quaternion.AngleAxis(PerspectiveChanger.instance.GetWorldOrientation(),Vector3.up);
 		while (Vector3.Distance(transform.position + (q * PerspectiveChanger.instance.offset),PerspectiveChanger.instance.idealPosition) > 19f) {
@@ -265,16 +268,15 @@ public class PlayerCharacter : MonoBehaviour
 					if (m_MoveSpeedMultiplier > maxSpeedMultiplier)
 						m_MoveSpeedMultiplier = maxSpeedMultiplier;
 				}
+				CheckGroundStatus();
 
 				//Dust poofs on the feet for running fast
 				if (Mathf.Abs(m_Rigidbody.velocity.magnitude) > runningFXSpeed)
 					checkFootCollision();
 			}
-			CheckGroundStatus();
 			move = Vector3.ProjectOnPlane(move,m_GroundNormal);
 			m_TurnAmount = Mathf.Atan2(move.x,move.z);
 			m_ForwardAmount = move.z;
-
 
 			// control and velocity handling is different when grounded and airborne:
 			if (m_IsGrounded) {
@@ -456,7 +458,7 @@ public class PlayerCharacter : MonoBehaviour
 		RigidbodyConstraints.FreezeRotationY |
 		RigidbodyConstraints.FreezeRotationZ;
 
-		transform.position = new Vector3 (transform.position.x, position.y, transform.position.z);
+		//transform.position = new Vector3 (transform.position.x, position.y, transform.position.z);
 		rollRotationObject.localRotation = Quaternion.Euler(startRot);
 		GetComponent<CapsuleCollider>().enabled = true;
 		jumpStartPosition = Vector3.down * 100;
