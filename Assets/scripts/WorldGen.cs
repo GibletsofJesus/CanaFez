@@ -308,8 +308,9 @@ public class WorldGen : MonoBehaviour
 	{
 		#region Determine spawn position of building
 		Vector3 _spawnPos = new Vector3 (_posX * (buildingChunkSize * 3), 
-			                    Mathf.Round(Random.Range(-heightVaraiation,heightVaraiation)), 
+			                    ((int)Mathf.Round(Random.Range(-heightVaraiation,heightVaraiation) / 4) * 4), 
 			                    -_posY * (buildingChunkSize * 3));
+
 
 		_spawnPos += transform.position;
 		Vector3 offset = Vector3.zero;//Offset needed when rotating buildings so the end up in the same position as previously

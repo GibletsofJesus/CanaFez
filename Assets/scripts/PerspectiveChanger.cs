@@ -11,7 +11,8 @@ public class PerspectiveChanger : MonoBehaviour
 
 	[SerializeField]
 	Transform CameraObject, PlayerAvatar, minimapCam, WorldObjects, miniMapQuad;
-
+	[SerializeField]
+	minimapRotater minimapThing;
 	public Vector3 offset;
 	Vector3 adjustedOffset;
 	public float lerpSpeed, changeSpeed;
@@ -200,10 +201,16 @@ public class PerspectiveChanger : MonoBehaviour
 			//Still needs to be fixed a bit
 			float h = CrossPlatformInputManager.GetAxis("Horizontal");
 			if (h != 0 && lerpSpeed < 10) {
+				minimapThing.dir = h > 0 ? true : false;
+				if (rotationAmount == 0)
+					minimapThing.Snap();
+				Debug.Log(minimapThing.dir);
 				adjustedOffset.x *= h > 0 ? -1 : 1;
 				PrevH = h;
 			}
 			else {
+				minimapThing.dir = PrevH > 0 ? true : false;
+				//minimapThing.Snap();
 				adjustedOffset.x *= PrevH > 0 ? -1 : 1;
 			}
 		}
@@ -285,6 +292,7 @@ public class PerspectiveChanger : MonoBehaviour
 		//addOFf = CameraObject.position - (clampedPlayerPos() + adjustedOffset);
 
 		rotationAmount = 90 * (dir ? 1 : -1);
+		minimapThing.SetRotation(rotationAmount);
 
 		rotationToComplete = rotationAmount;
 		//findIdealPositionAndSet();
@@ -303,6 +311,8 @@ public class PerspectiveChanger : MonoBehaviour
 		if (additionalRotation == -270)
 			additionalRotation = 90;
 		rotationAmount += additionalRotation;
+
+		minimapThing.SetRotation(rotationAmount);
 
 		Time.timeScale = rotationAmount == 0 ? 1 : 0;
 	}

@@ -60,8 +60,8 @@ public class SoundManager : MonoBehaviour
             managedAudioSources [0].AudioSrc.UnPause();
 		else
 			managedAudioSources [0].AudioSrc.Pause();
-
-		managedAudioSources [0].AudioSrc.pitch = pitch * (SlowMo ? 0.1f : 1);
+		
+		//managedAudioSources [0].AudioSrc.pitch = pitch * (SlowMo ? 0.1f : 1);
 	}
 
 	public void changeVolume (float newVol)

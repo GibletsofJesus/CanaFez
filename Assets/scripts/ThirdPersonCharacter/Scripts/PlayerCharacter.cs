@@ -52,13 +52,7 @@ public class PlayerCharacter : MonoBehaviour
 
 	[SerializeField]
 	Transform startingPosition;
-
-	[Header("Upgrades")]
-	[SerializeField]
-	bool doubleJump;
-	bool extraJump;
-
-	[Header("Jupming")]
+	[Header("Jumping")]
 	[SerializeField]
 	Transform jumpBar;
 	float jumpTimer = 0;
@@ -89,6 +83,8 @@ public class PlayerCharacter : MonoBehaviour
 	[SerializeField]
 	ParticleSystem[] footDust;
 	float runningFXSpeed = 5, vibration;
+	[SerializeField]
+	ParticleSystem speedLines;
 
 	void Start ()
 	{
@@ -126,9 +122,9 @@ public class PlayerCharacter : MonoBehaviour
 		m_IsGrounded = true;
 		m_Rigidbody.velocity = Vector3.zero;
 		m_Rigidbody.angularVelocity = Vector3.zero;
-		yield return new WaitForSeconds (.01f);
 		transform.position = lastSpawner.transform.position;
-		yield return new WaitForSeconds (.5f);
+		m_Rigidbody.isKinematic = false;
+		//yield return new WaitForSeconds (.5f);
 
 		Quaternion q = Quaternion.AngleAxis(PerspectiveChanger.instance.GetWorldOrientation(),Vector3.up);
 		while (Vector3.Distance(transform.position + (q * PerspectiveChanger.instance.offset),PerspectiveChanger.instance.idealPosition) > 19f) {
@@ -244,6 +240,7 @@ public class PlayerCharacter : MonoBehaviour
 		if (!rolling) {
 			CheckDeath();
 			if (CrossPlatformInputManager.GetButtonDown("Fire1")) {
+				m_Rigidbody.isKinematic = true;
 				StartCoroutine(respawnEffect());
 			}
 
@@ -268,12 +265,11 @@ public class PlayerCharacter : MonoBehaviour
 					if (m_MoveSpeedMultiplier > maxSpeedMultiplier)
 						m_MoveSpeedMultiplier = maxSpeedMultiplier;
 				}
-				CheckGroundStatus();
-
 				//Dust poofs on the feet for running fast
 				if (Mathf.Abs(m_Rigidbody.velocity.magnitude) > runningFXSpeed)
 					checkFootCollision();
 			}
+			CheckGroundStatus();
 			move = Vector3.ProjectOnPlane(move,m_GroundNormal);
 			m_TurnAmount = Mathf.Atan2(move.x,move.z);
 			m_ForwardAmount = move.z;
@@ -288,6 +284,23 @@ public class PlayerCharacter : MonoBehaviour
 			}
 			UpdateAnimator(move);
 		}
+		#endregion
+
+		#region Wooshing effects
+		//SoundManager.instance.managedAudioSources [0].volumeLimit = (m_MoveSpeedMultiplier / maxSpeedMultiplier);
+		SoundManager.instance.managedAudioSources [0].volumeLimit = (Mathf.Lerp(
+			SoundManager.instance.managedAudioSources [0].volumeLimit,
+			(m_Rigidbody.velocity.magnitude * m_Rigidbody.velocity.magnitude) / 750f,
+			Time.deltaTime * 5)
+		/ 1f) * SoundManager.instance.volumeMultiplayer;
+		SoundManager.instance.managedAudioSources [0].AudioSrc.pitch = Mathf.Clamp(0.1f + Mathf.Lerp(SoundManager.instance.managedAudioSources [0].AudioSrc.pitch,
+			(m_Rigidbody.velocity.magnitude * m_Rigidbody.velocity.magnitude) / 1250f,
+			Time.deltaTime * 5),0,2);
+		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
+
+		ParticleSystem.EmissionModule em = speedLines.emission;
+		
+		em.rateOverDistance = (m_Rigidbody.velocity.sqrMagnitude - 200f) / 150f;
 		#endregion
 	}
 
@@ -335,7 +348,7 @@ public class PlayerCharacter : MonoBehaviour
 		Vector3 extraGravityForce = (Physics.gravity * m_GravityMultiplier) - Physics.gravity;
 		m_Rigidbody.AddForce(extraGravityForce);
 
-		m_GroundCheckDistance = m_Rigidbody.velocity.y < 0 ? m_OrigGroundCheckDistance : 0.01f;
+		m_GroundCheckDistance = m_Rigidbody.velocity.y < 0 ? m_OrigGroundCheckDistance : 0.1f;
 	}
 
 	public void OnAnimatorMove ()
@@ -394,7 +407,7 @@ public class PlayerCharacter : MonoBehaviour
 			jumpStartPosition = transform.position;
 			m_IsGrounded = false;
 			m_Animator.applyRootMotion = false;
-			m_GroundCheckDistance = 0.01f;
+			m_GroundCheckDistance = 0.1f;
 		}
 	}
 
@@ -450,7 +463,7 @@ public class PlayerCharacter : MonoBehaviour
 		//Need to make sure velocity is preserved during this time of crouching.
 		m_Animator.SetBool("Crouch",false);
 		RaycastHit _hitInfo;
-		m_Animator.SetBool("OnGround",Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,2.0f));
+		m_Animator.SetBool("OnGround",Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,3.0f));
 
 		m_Rigidbody.constraints =
 			AxisLock() |
@@ -488,7 +501,7 @@ public class PlayerCharacter : MonoBehaviour
 		RaycastHit hitInfo;
 		#if UNITY_EDITOR
 		// helper to visualise the ground check ray in the scene view
-		//Debug.DrawLine(transform.position + (Vector3.up * 0.1f),transform.position + (Vector3.up * 0.1f) + (Vector3.down * m_GroundCheckDistance),Color.red,5f);
+		Debug.DrawLine(transform.position + (Vector3.up * 0.1f),transform.position + (Vector3.up * 0.1f) + (Vector3.down * m_GroundCheckDistance),Color.red,5f);
 		#endif
 		// 0.1f is a small offset to start the ray from inside the character
 		// it is also good to note that the transform position in the sample assets is at the base of the character
@@ -559,12 +572,12 @@ public class PlayerCharacter : MonoBehaviour
 
 		bool upToSpeed = Mathf.Abs(m_Rigidbody.velocity.x) > minRollSpeed || Mathf.Abs(m_Rigidbody.velocity.z) > minRollSpeed;
 
-		if (Mathf.Abs(prevVertVel) > craterSpeed) {
+		if (Mathf.Abs(prevVertVel) > craterSpeed && transform.position.y > -15) {
 			//Make a cater effect
 			DoACrater(position);
 		}
 		else if (position.y < jumpStartPosition.y && upToSpeed) {
-				if (!rolling && !respawning) {
+				if (!rolling && !respawning && transform.position.y > -15) {
 					rolling = true;
 					StartCoroutine(CrouchRoll(movingOnXAxis() ? Mathf.Abs(m_Rigidbody.velocity.x) : Mathf.Abs(m_Rigidbody.velocity.z),position));
 				}
