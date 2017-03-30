@@ -45,9 +45,10 @@ public class UpgradeManager : MonoBehaviour
 					//Do nothing yet
 					break;
 				case upgradeType.additionalTime:
-					//Do nothing yet
+					GameTimer.instance.timeElapsed -= 20;
 					break;
 				case upgradeType.lessGravity:
+					PlayerCharacter.instance.lowGravity = true;
 					break;
 				case upgradeType.homingLanding:
 					//Do nothing yet
@@ -59,6 +60,12 @@ public class UpgradeManager : MonoBehaviour
 	// Use this for initialization
 	void Start ()
 	{
+		foreach (upgradeType ut in System.Enum.GetValues(typeof(upgradeType))) {
+			availableUpgrades.Add(new Upgrade{ type = ut });
+		}
+		foreach (upgradeType ut in System.Enum.GetValues(typeof(upgradeType))) {
+			availableUpgrades.Add(new Upgrade{ type = ut });
+		}
 		foreach (upgradeType ut in System.Enum.GetValues(typeof(upgradeType))) {
 			availableUpgrades.Add(new Upgrade{ type = ut });
 		}
@@ -105,10 +112,10 @@ public class UpgradeManager : MonoBehaviour
 					upgradeText [i].text = "+20 seconds to game timer";
 					break;
 				case upgradeType.homingLanding:
-					upgradeText [i].text = "I HAVEN'T DONE THIS ONE YET";
+					upgradeText [i].text = "";
 					break;
 				case upgradeType.lessGravity:
-					upgradeText [i].text = "-20% gravity";
+					upgradeText [i].text = "-50% gravity";
 					break;
 			}
 		}

@@ -13,10 +13,13 @@ public class PerspectiveChanger : MonoBehaviour
 	Transform CameraObject, PlayerAvatar, minimapCam, WorldObjects, miniMapQuad;
 	[SerializeField]
 	minimapRotater minimapThing;
+	[SerializeField]
+	GameObject MinimimapCityName;
 	public Vector3 offset;
 	Vector3 adjustedOffset;
 	public float lerpSpeed, changeSpeed;
-
+	[SerializeField]
+	AudioClip[] wooshes;
 	[SerializeField]
 	float rotationAmount, idealRotation = 0;
 
@@ -81,6 +84,7 @@ public class PerspectiveChanger : MonoBehaviour
 
 		m_Rigidbody.velocity = q * prevVel;
 
+		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
 		rotationToComplete = 0;
 	}
 
@@ -99,6 +103,9 @@ public class PerspectiveChanger : MonoBehaviour
 
 	#region intro sequence
 
+	[SerializeField]
+	Renderer transitionThing;
+
 	public IEnumerator MoveCam ()
 	{
 		Animator _anim = CameraShake.instance.GetComponent<Animator>();
@@ -109,11 +116,17 @@ public class PerspectiveChanger : MonoBehaviour
 		WorldGen.instance.GenerateSillyName();
 		yield return new WaitForSeconds (0.23f);
 		_anim.SetFloat("rev",0);
+		_anim.playbackTime = 0;
 		yield return new WaitForSeconds (2f);
 		while (WorldGen.instance.generating)
 			yield return null;
 
+		_anim.playbackTime = 0;
 		PlayerCharacter.instance.transform.position = PlayerCharacter.instance.lastSpawner.transform.position + (Vector3.up * 3);
+
+		//RIGHT BETTER FUCKING MAKE SURE THIS SHIT IS FIXED
+		_anim.enabled = false;
+		transitionThing.material.SetFloat("_SliceAmount",1);
 
 		lerpSpeed = 2;
 		yield return new WaitForSeconds (1);
@@ -204,7 +217,6 @@ public class PerspectiveChanger : MonoBehaviour
 				minimapThing.dir = h > 0 ? true : false;
 				if (rotationAmount == 0)
 					minimapThing.Snap();
-				Debug.Log(minimapThing.dir);
 				adjustedOffset.x *= h > 0 ? -1 : 1;
 				PrevH = h;
 			}
@@ -236,8 +248,13 @@ public class PerspectiveChanger : MonoBehaviour
 		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
 
 			#region minimap
-			if (Input.GetKeyDown(KeyCode.M)) {
+
+			if (CrossPlatformInputManager.GetButtonDown("Minimap")) {
 				bigMap = !bigMap;
+				if (bigMap)
+					PlayerCharacter.instance.Pause();
+				else
+					PlayerCharacter.instance.UnPause();
 			}
 
 			if (bigMap) {
@@ -257,8 +274,12 @@ public class PerspectiveChanger : MonoBehaviour
 
 			minimapLerp += Time.deltaTime * (bigMap ? 5 : -5);
 
-			if (minimapLerp > 1)
+			if (minimapLerp > 1) {
+				MinimimapCityName.SetActive(true);
 				minimapLerp = 1;
+			}
+			else
+				MinimimapCityName.SetActive(false);
 			if (minimapLerp < 0)
 				minimapLerp = 0;
 
@@ -282,10 +303,13 @@ public class PerspectiveChanger : MonoBehaviour
 	float rotationToComplete;
 	Vector3 addOFf;
 
-
+	public float pitchMod = 1;
 	//Rotation function used by the player
 	public void Rotate (bool dir)//false left, true right
 	{
+		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = 0;
+		pitchMod = wooshes [0].length / 0.3f; //Turning takes ~20 frames which @ 60fps = 1/3 of a second
+		SoundManager.instance.playSound(wooshes [0],1,pitchMod + Random.Range(-pitchMod / 10,pitchMod / 10));
 		if (clockwise)
 			dir = !dir;
 

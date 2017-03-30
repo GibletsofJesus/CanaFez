@@ -55,6 +55,7 @@ public class PlayerCharacter : MonoBehaviour
 	[Header("Jumping")]
 	[SerializeField]
 	Transform jumpBar;
+	SpriteRenderer jumpBarSprite;
 	float jumpTimer = 0;
 	Vector3 jumpStartPosition;
 	[HideInInspector]
@@ -75,8 +76,6 @@ public class PlayerCharacter : MonoBehaviour
 	AudioClip stompLandingSound, deathSound, doorOpen, doorClose;
 
 	[Header("Cool FX")]
-	[SerializeField]
-	Transform shadow;
 	[SerializeField]
 	Transform[] footsies;
 	bool[] footGrounded = { true, true };
@@ -178,6 +177,7 @@ public class PlayerCharacter : MonoBehaviour
 
 	public void UnPause ()
 	{
+		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
 		m_Rigidbody.velocity = UnPausedVelocity;
 		m_Rigidbody.isKinematic = false;
 	}
@@ -186,43 +186,75 @@ public class PlayerCharacter : MonoBehaviour
 
 	public void Pause ()
 	{
+		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = 0;
 		UnPausedVelocity = m_Rigidbody.velocity;
 		m_Rigidbody.isKinematic = true;
 	}
 
 	#region movement
 
+	[SerializeField]
+	Color[] basicColors;
+	int flashIndex = 0;
+	[SerializeField]
+	AudioClip sound;
+	[SerializeField]
+	float[] pitchMod;
+
 	public void Move (Vector3 move, bool crouch)
 	{
-		//Stop the player from moving along another axis
+		#region Stop the player from moving along another axis
 		if (movingOnXAxis()) {
 			move.z = 0;
 		}
 		else
 			move.x = 0;
+		#endregion
 
-		if (shadow) {
-			RaycastHit hitInfo;
-			Physics.Raycast(transform.position + Vector3.up,Vector3.down,out hitInfo,1000);
-			shadow.position = hitInfo.point + (Vector3.up / 10f);
-			shadow.localRotation = Quaternion.Euler(90,transform.localRotation.eulerAngles.y,0);
-		}
-		//Cap forward /backward movement dependant on axis
+		#region big yumps
+
 		bool jump = false;
-		if (CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer < maxJumpTimer) {
-			jumpBar.localScale = new Vector3 (Mathf.Lerp(0,61,jumpTimer / maxJumpTimer), 1, 1);
+		if (CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer <= maxJumpTimer) {
+			SoundManager.instance.managedAudioSources [1].volumeLimit = Mathf.Lerp(0.1f,0.5f,jumpTimer / maxJumpTimer);
+			SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Lerp(pitchMod [0],pitchMod [1],jumpTimer / maxJumpTimer);
+			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
+
 			jumpTimer += Time.deltaTime;
 			if (jumpTimer > maxJumpTimer) {
 				//m_IsGrounded = false;
-				jump = true;
+
+				//Don't force a jump out
+				//jump = true;
+
+				SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Lerp(pitchMod [0],pitchMod [1] + ((float)flashIndex / 100f),jumpTimer / maxJumpTimer);
+				jumpTimer = maxJumpTimer;
+				if (!jumpBarSprite)
+					jumpBarSprite = jumpBar.GetComponentInChildren<SpriteRenderer>();
+
+				flashIndex++;
+				if (flashIndex > basicColors.Length - 1) {
+					flashIndex = 0;
+				}
+				jumpBarSprite.color = basicColors [flashIndex];
 			}
+			jumpBar.localScale = new Vector3 (Mathf.Lerp(0,61,jumpTimer / maxJumpTimer), 1, 1);
 		}
 		else
 			jumpBar.localScale = new Vector3 (Mathf.Lerp(jumpBar.transform.localScale.x,0,Time.deltaTime * 3), 1, 1);
 		
-		if (!CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer > 0)
-			jump = true;
+		if (!CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer > 0) {
+			SoundManager.instance.playSound(sound,1,pitchMod [2]);
 
+			SoundManager.instance.managedAudioSources [1].volumeLimit = 0;
+			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
+			flashIndex = 0;
+			if (jumpBarSprite)
+				jumpBarSprite.color = Color.white;
+			jump = true;
+		}
+		#endregion
+
+		#region walk out of the respawn area
 		if (respawning && lastSpawner.GetCurrentAnimatorStateInfo(0).IsName("rooftopDoor_open")) {
 			bool dir = lastSpawner.transform.localRotation.eulerAngles.y < 0;
 
@@ -235,6 +267,7 @@ public class PlayerCharacter : MonoBehaviour
 		else if (respawning) {
 				move = Vector3.zero;
 			}
+		#endregion
 
 		#region normal movement...?
 		if (!rolling) {
@@ -287,20 +320,24 @@ public class PlayerCharacter : MonoBehaviour
 		#endregion
 
 		#region Wooshing effects
-		//SoundManager.instance.managedAudioSources [0].volumeLimit = (m_MoveSpeedMultiplier / maxSpeedMultiplier);
-		SoundManager.instance.managedAudioSources [0].volumeLimit = (Mathf.Lerp(
-			SoundManager.instance.managedAudioSources [0].volumeLimit,
-			(m_Rigidbody.velocity.magnitude * m_Rigidbody.velocity.magnitude) / 750f,
-			Time.deltaTime * 5)
-		/ 1f) * SoundManager.instance.volumeMultiplayer;
-		SoundManager.instance.managedAudioSources [0].AudioSrc.pitch = Mathf.Clamp(0.1f + Mathf.Lerp(SoundManager.instance.managedAudioSources [0].AudioSrc.pitch,
-			(m_Rigidbody.velocity.magnitude * m_Rigidbody.velocity.magnitude) / 1250f,
-			Time.deltaTime * 5),0,2);
-		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
+		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
+			SoundManager.instance.managedAudioSources [0].volumeLimit = (Mathf.Lerp(
+				SoundManager.instance.managedAudioSources [0].volumeLimit,
+				(m_Rigidbody.velocity.magnitude * m_Rigidbody.velocity.magnitude) / 750f,
+				Time.deltaTime * 5)
+			/ 1f) * SoundManager.instance.volumeMultiplayer;
+			SoundManager.instance.managedAudioSources [0].AudioSrc.pitch = Mathf.Clamp(0.1f + Mathf.Lerp(SoundManager.instance.managedAudioSources [0].AudioSrc.pitch,
+				(m_Rigidbody.velocity.magnitude * m_Rigidbody.velocity.magnitude) / 1250f,
+				Time.deltaTime * 5),0,2);
+			SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
 
-		ParticleSystem.EmissionModule em = speedLines.emission;
+			ParticleSystem.EmissionModule em = speedLines.emission;
 		
-		em.rateOverDistance = (m_Rigidbody.velocity.sqrMagnitude - 200f) / 150f;
+			em.rateOverDistance = (m_Rigidbody.velocity.sqrMagnitude - 200f) / 150f;
+		}
+		else {
+			SoundManager.instance.managedAudioSources [0].AudioSrc.volume = 0;			
+		}
 		#endregion
 	}
 
@@ -397,12 +434,14 @@ public class PlayerCharacter : MonoBehaviour
 		}
 	}
 
+	public bool lowGravity;
+
 	void HandleGroundedMovement (bool crouch, bool jump)
 	{			
 		// check whether conditions are right to allow a jump and if so, do a jump.
 		if (jump && !crouch && (m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded"))) {
 			
-			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, m_JumpPower + (jumpTimer * 5), m_Rigidbody.velocity.z);
+			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, (m_JumpPower + (jumpTimer * 5)) * (lowGravity ? 1.5f : 1), m_Rigidbody.velocity.z);
 
 			jumpStartPosition = transform.position;
 			m_IsGrounded = false;
@@ -569,7 +608,6 @@ public class PlayerCharacter : MonoBehaviour
 		#endif
 
 		jumpTimer = 0;
-
 		bool upToSpeed = Mathf.Abs(m_Rigidbody.velocity.x) > minRollSpeed || Mathf.Abs(m_Rigidbody.velocity.z) > minRollSpeed;
 
 		if (Mathf.Abs(prevVertVel) > craterSpeed && transform.position.y > -15) {

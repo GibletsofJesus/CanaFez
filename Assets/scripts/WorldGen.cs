@@ -19,7 +19,6 @@ public class WorldGen : MonoBehaviour
 	class roadIntersections
 	{
 		public bool up, down, left, right;
-
 	}
 
 	public static WorldGen instance;
@@ -60,6 +59,11 @@ public class WorldGen : MonoBehaviour
 	[SerializeField]
 	Text CityNameUi;
 
+	public int GetCompletionRating ()
+	{
+		return Mathf.RoundToInt(((float)minimapCapture.instance.captures.Count / (float)buildings.Count) * 100f);
+	}
+
 	void Start ()
 	{
 		instance = this;
@@ -74,16 +78,6 @@ public class WorldGen : MonoBehaviour
 			if (resMultiplier > 4)
 				resMultiplier = 1;
 			Screen.SetResolution(240 * resMultiplier,160 * resMultiplier,false);
-		}
-
-		//Display a new silly name
-		if (Input.GetKeyDown(KeyCode.Joystick1Button1))
-			GenerateSillyName();
-
-		//Generate a new city
-		if (Input.GetKeyDown(KeyCode.Joystick1Button6)) {
-			StopCoroutine(GenerateCity());
-			StartCoroutine(GenerateCity());
 		}
 	}
 
@@ -472,19 +466,31 @@ public class WorldGen : MonoBehaviour
 
 	public string GenerateSillyName ()
 	{
-		CityNameUi.GetComponentInParent<Animator>().Play("city intro");
-		string[] start = { "North", "East", "South", "West", "New" };
-		string[] noun = { "Bork", "Snork", "Cleft", "Smog", "Crump", "Biggle", "Fuckshit" };
-		string[] suffix = { "ington", "shire", " upon thames", "istan", "ville" };
 		string output = "";
-		if (Random.value > 0.2f)
-			output += start [Random.Range(0,start.Length)] + " ";
-		output += noun [Random.Range(0,noun.Length)];
-		if (Random.value > 0.2f)
-			output += suffix [Random.Range(0,suffix.Length)];
-		CityNameUi.GetComponentInParent<Animator>().Play("city intro");
-		CityNameUi.text = output;
+		CityNameUi.text = "YOU SHOULDN'T BE SEEING THIS";
+		while (CityNameUi.text.Length > 13) {
+			output = "";
+			CityNameUi.GetComponentInParent<Animator>().Play("city intro");
+			string[] start = { "North", "East", "South", "West", "New" };
+			string[] noun = { "Bork", "Snork", "Cleft", "Smog", "Crump", "Biggle", "Fuckshit" };
+			string[] suffix = { "ington", "shire", " upon thames", "istan", "ville" };
+			if (Random.value > 0.2f)
+				output += start [Random.Range(0,start.Length)] + " ";
+			output += noun [Random.Range(0,noun.Length)];
+			if (Random.value > 0.2f)
+				output += suffix [Random.Range(0,suffix.Length)];
+			CityNameUi.GetComponentInParent<Animator>().Play("city intro");
+			CityNameUi.text = output;
+		}
+		sillyname = output;
 		return output;
+	}
+
+	string sillyname;
+
+	public string GetCurrentCityName ()
+	{
+		return sillyname;
 	}
 
 	#endregion

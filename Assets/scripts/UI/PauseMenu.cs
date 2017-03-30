@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityStandardAssets.CrossPlatformInput;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
 
 public class PauseMenu : MonoBehaviour
 {
@@ -83,7 +83,7 @@ public class PauseMenu : MonoBehaviour
 								break;
 							case 2:
 								Time.timeScale = 1;
-								EditorSceneManager.LoadScene(0);
+								SceneManager.LoadScene(0);
 								break;
 							case 3:
 								//Are you sure window?

@@ -7,13 +7,19 @@ public class flash : MonoBehaviour
 	public SpriteRenderer sr;
 	public Image img;
 	public Text t;
+	public TextMesh tm;
 	bool flashOn;
 	int i = 0;
 	public int flashSpeed;
 
+	[Header("TextMesh Colours")]
+	public Color[] meshCols;
+
 	void FixedUpdate ()
 	{
 		if (flashOn) {
+			if (tm)
+				tm.color = tm.color == meshCols [0] ? meshCols [1] : meshCols [0];
 			if (sr)
 				sr.enabled = !sr.enabled;
 			if (img)

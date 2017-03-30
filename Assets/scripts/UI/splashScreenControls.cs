@@ -12,6 +12,7 @@ public class splashScreenControls : MonoBehaviour
 	AudioClip[] blips;
 	[SerializeField]
 	Animator _anim;
+	[Header("Main menu")]
 	[SerializeField]
 	Text[] mainMenu;
 	[SerializeField]
@@ -19,11 +20,21 @@ public class splashScreenControls : MonoBehaviour
 	[SerializeField]
 	Image MainMenuArrow;
 	int menuIndex;
+
 	[Header("Leaderboards")]
 	[SerializeField]
 	Image LeaderboardsImage;
 	[SerializeField]
 	Text LeaderboardRanks, LeaderboardNames, LeaderboardScores;
+
+	[Header("Options")]
+	[SerializeField]
+	Image[] volumeImages;
+	[SerializeField]
+	Image optionsBox, optionsArrow;
+	[SerializeField]
+	Text optionsText, paletteText;
+	int optionsIndex;
 
 	MenuState state = MenuState.idle;
 
@@ -32,6 +43,7 @@ public class splashScreenControls : MonoBehaviour
 		idle,
 		start,
 		leaderboards,
+		options,
 		main}
 	;
 
@@ -108,8 +120,10 @@ public class splashScreenControls : MonoBehaviour
 							break;
 						case 1:
 							mainMenu [1].GetComponent<flash>().enabled = true;
+							timePushing = 0;
 							SoundManager.instance.playSound(blips [1],1,1);
-							//go into options menu
+							optionsBox.gameObject.SetActive(true);
+							StartCoroutine(Options(true));
 							break;
 						case 2:
 							mainMenu [2].GetComponent<flash>().enabled = true;
@@ -135,7 +149,130 @@ public class splashScreenControls : MonoBehaviour
 					SoundManager.instance.playSound(blips [2],1,1);
 				}
 				break;
+			case MenuState.options:
+				menuMoveCD = menuMoveCD > 0 ? menuMoveCD - Time.deltaTime : 0;
+				paletteCD = paletteCD > 0 ? paletteCD - Time.deltaTime : 0;
+
+				#region menu up/down
+				float _v = CrossPlatformInputManager.GetAxis("Vertical");
+				if (Mathf.Abs(_v) > 0 && menuMoveCD == 0) {
+
+					if (_v > 0) {
+						SoundManager.instance.playSound(blips [0],1,0.75f + Mathf.Clamp(timePushing / 4,0,.5f) + Random.Range(-0.03f,0.03f));
+						timePushing = _prevV > 0 ? timePushing + 0.25f : 0;
+						menuMoveCD = timePushing > 1 ? 0.05f : 0.15f;
+						optionsIndex = optionsIndex > 0 ? optionsIndex - 1 : 4;
+					}
+					else {
+						SoundManager.instance.playSound(blips [0],1,0.75f + Mathf.Clamp(timePushing / 4,0,0.5f) + Random.Range(-0.03f,0.03f));
+						timePushing = _prevV < 0 ? timePushing + 0.25f : 0;
+						menuMoveCD = timePushing > 1 ? 0.05f : 0.15f;
+						optionsIndex = optionsIndex < 4 ? optionsIndex + 1 : 0;
+					}
+
+					if (optionsIndex < 2)
+						optionsArrow.rectTransform.anchoredPosition = new Vector3 (-43f, 35.5f - (optionsIndex * 10f), 0);
+					else
+						optionsArrow.rectTransform.anchoredPosition = new Vector3 (-43f, 45.5f - (optionsIndex * 20f), 0);
+				}
+				_prevV = _v;
+				#endregion
+
+				#region selecting menu items
+				if (CrossPlatformInputManager.GetButton("Jump")) {
+					switch (optionsIndex) {
+						case 2:
+							//swap colour palette
+							if (paletteCD == 0) {
+								paletteCD = .5f;
+								PaletteSwapLookup.instance.SetPaletteIndex(-1,paletteText);
+							}
+							break;
+						case 3:
+							//Some popup option for wiping highscores
+							break;
+						case 4:
+							state = MenuState.idle;
+							StartCoroutine(Options(false));
+							SoundManager.instance.playSound(blips [2],1,1);
+							break;
+					}
+				}
+				#endregion
+
+				#region left/right controls
+				float h = CrossPlatformInputManager.GetAxis("Horizontal");
+				if (Mathf.Abs(h) > 0) {
+					if (optionsIndex < 2) {
+						float vol = optionsIndex == 0 ? SoundManager.instance.musicVolume : SoundManager.instance.volumeMultiplayer;
+						vol += h * Time.unscaledDeltaTime / 2;
+						vol = Mathf.Clamp01(vol);
+						volumeImages [optionsIndex == 0 ? 1 : 3].fillAmount = vol / 2;
+
+						if (optionsIndex == 0)
+							SoundManager.instance.musicVolume = vol;
+						else
+							SoundManager.instance.changeVolume(vol);
+					}
+					else if (optionsIndex == 2 && paletteCD == 0) {
+							if (h > 0) {
+								SoundManager.instance.playSound(blips [0],1,0.75f + Mathf.Clamp(timePushingH / 4,0,.5f) + Random.Range(-0.03f,0.03f));
+								timePushingH = prevH > 0 ? timePushingH + 0.25f : 0;
+								paletteCD = timePushingH > 1 ? 0.05f : 0.15f;
+								PaletteSwapLookup.instance.SetPaletteIndex(-1,paletteText);
+							}
+							else if (h < 0) {
+									SoundManager.instance.playSound(blips [0],1,0.75f + Mathf.Clamp(timePushingH / 4,0,0.5f) + Random.Range(-0.03f,0.03f));
+									timePushingH = prevH < 0 ? timePushingH + 0.25f : 0;
+									paletteCD = timePushingH > 1 ? 0.05f : 0.15f;
+									PaletteSwapLookup.instance.SetPaletteIndex(1,paletteText);
+								}
+								else
+									timePushingH = 0;
+						}
+				}
+				prevH = h;
+				#endregion
+
+				break;
 		}
+	}
+
+	IEnumerator Options (bool open)
+	{
+		paletteText.text = "" + PlayerPrefs.GetInt("Palette");
+		optionsText.gameObject.SetActive(false);
+		optionsArrow.enabled = false;
+		paletteText.enabled = false;
+		foreach (Image i in volumeImages)
+			i.enabled = false;
+
+		float lerpy = 0;
+		while (lerpy < 1) {
+			lerpy += Time.deltaTime;
+			optionsBox.rectTransform.sizeDelta = new Vector2 (
+				Mathf.Lerp(0,100,(open ? lerpy : 1 - lerpy) * 2),
+				Mathf.Lerp(4,93,((open ? lerpy : 1 - lerpy) * 2) - 1));
+			yield return new WaitForEndOfFrame ();
+		}
+		mainMenu [1].GetComponent<flash>().enabled = false;
+		mainMenu [1].enabled = true;
+		if (open) {
+			optionsText.gameObject.SetActive(true);
+			string fullString = optionsText.text;
+			optionsText.text = "";
+
+			for (int i = 0; i < fullString.Length; i++) {
+				optionsText.text += fullString [i];
+				yield return new WaitForEndOfFrame ();
+			}
+			optionsArrow.enabled = true;
+			foreach (Image i in volumeImages)
+				i.enabled = true;
+
+			paletteText.enabled = true;
+		}
+		state = open ? MenuState.options : MenuState.main;
 	}
 
 	IEnumerator Leaderboard (bool open)
@@ -237,7 +374,7 @@ public class splashScreenControls : MonoBehaviour
 
 			#region method C
 			//Same as method B, only do a line at a time
-			for (int i = 0; i < _ranks.Length; i++) {
+			/*for (int i = 0; i < _ranks.Length; i++) {
 				LeaderboardRanks.text += _ranks [i];
 				yield return new WaitForEndOfFrame ();
 			}
@@ -248,7 +385,7 @@ public class splashScreenControls : MonoBehaviour
 			for (int i = 0; i < _scores.Length; i++) {
 				LeaderboardScores.text += _scores [i];
 				yield return new WaitForEndOfFrame ();
-			}
+			}*/
 			#endregion
 		}
 		state = open ? MenuState.leaderboards : MenuState.main;
@@ -262,6 +399,6 @@ public class splashScreenControls : MonoBehaviour
 		SceneManager.LoadScene(1);
 	}
 
-	float menuMoveCD, prevV, timePushing;
+	float menuMoveCD, paletteCD, prevV, prevH, _prevV, timePushing, timePushingH;
 
 }

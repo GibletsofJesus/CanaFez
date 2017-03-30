@@ -12,7 +12,7 @@ public class GameStateManager : MonoBehaviour
 		GAMESTATES_COUNT
 	}
 
-	public GameObject PauseMenu, GameplayUI, UpgradeUI;
+	public GameObject PauseMenu, GameplayUI, UpgradeUI, GameOverUI;
 	private static GameStateManager singleton = null;
 
 	public static GameStateManager instance { get { return singleton; } }
@@ -32,6 +32,7 @@ public class GameStateManager : MonoBehaviour
 			states [(int)GameStates.STATE_PAUSE] = new PauseState ();
 			states [(int)GameStates.STATE_SPLASH] = new SplashState ();
 			states [(int)GameStates.STATE_UPGRADE] = new UpgradeState ();
+			states [(int)GameStates.STATE_GAMEOVER] = new GameOverState ();
 		}
 	}
 
@@ -43,6 +44,7 @@ public class GameStateManager : MonoBehaviour
 			states [(int)GameStates.STATE_PAUSE] = new PauseState ();
 			states [(int)GameStates.STATE_SPLASH] = new SplashState ();
 			states [(int)GameStates.STATE_UPGRADE] = new UpgradeState ();
+			states [(int)GameStates.STATE_GAMEOVER] = new GameOverState ();
 		}
 		else {
 			states [(int)currentState].Update();
@@ -61,6 +63,4 @@ public class GameStateManager : MonoBehaviour
 	{
 		return currentState;
 	}
-
-
 }

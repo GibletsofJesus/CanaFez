@@ -1,7 +1,11 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
+
 
 public class FractalTree : MonoBehaviour
 {
@@ -119,6 +123,7 @@ public class FractalTree : MonoBehaviour
 	}
 }
 
+#if UNITY_EDITOR
 [CustomEditor(typeof(FractalTree))]
 public class FractualUI : Editor
 {
@@ -131,3 +136,4 @@ public class FractualUI : Editor
 			rp.MakeTree();
 	}
 }
+#endif

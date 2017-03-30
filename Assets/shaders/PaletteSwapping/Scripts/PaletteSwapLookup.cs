@@ -5,6 +5,7 @@ using System.Collections;
 [ExecuteInEditMode]
 public class PaletteSwapLookup : MonoBehaviour
 {
+	public static PaletteSwapLookup instance;
 	public Texture[] LookupTexture;
 	//public Sprite[] paletteSprites;
 	[SerializeField]
@@ -15,6 +16,7 @@ public class PaletteSwapLookup : MonoBehaviour
 
 	void OnEnable ()
 	{
+		instance = this;
 		if (PlayerPrefs.HasKey("Palette"))
 			paletteIndex = PlayerPrefs.GetInt("Palette");
 		if (_mat == null)
@@ -30,11 +32,8 @@ public class PaletteSwapLookup : MonoBehaviour
 		if (paletteIndex < 0)
 			paletteIndex = LookupTexture.Length - 1;
 
-		/*if (paletteIndex == 0)
-            textComp.text = "0. Original";
-        else*/
-		textComp.text = '\n' + "" + paletteIndex + ". " + LookupTexture [paletteIndex].name;
-
+		PlayerPrefs.SetInt("Palette",paletteIndex);
+		textComp.text = "" + paletteIndex;
 	}
 
 	public void SetPaletteIndex (int newIndex)
@@ -45,6 +44,9 @@ public class PaletteSwapLookup : MonoBehaviour
 
 	void Update ()
 	{
+		if (!instance)
+			instance = this;
+
 		if (Input.GetKeyDown(KeyCode.Keypad0))
 			SetPaletteIndex(0);
 		if (Input.GetKeyDown(KeyCode.Keypad1))
@@ -65,18 +67,7 @@ public class PaletteSwapLookup : MonoBehaviour
 			SetPaletteIndex(8);
 		if (Input.GetKeyDown(KeyCode.Keypad9))
 			SetPaletteIndex(9);
-
-		/*num += Time.deltaTime;
-		if (num > 2) {
-			StartCoroutine(WorldGen.instance.GenerateCity());
-			paletteIndex++;
-			if (paletteIndex > LookupTexture.Length - 1)
-				paletteIndex = 0;
-			num = 0;
-		}*/
 	}
-
-	//float num = 0;
 
 	void OnDisable ()
 	{
