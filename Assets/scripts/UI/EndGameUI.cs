@@ -94,7 +94,7 @@ public class EndGameUI : MonoBehaviour
 		if (currentState == state.Ready) {
 			moveCD = moveCD > 0 ? moveCD - Time.deltaTime : 0;
 			float v = CrossPlatformInputManager.GetAxis("Vertical");
-			if (Mathf.Abs(v) > 0 && moveCD <= 0) {
+			if (Mathf.Abs(v) > 0.15f && moveCD <= 0) {
 				/*index += v > 0 ? -1 : 1;
 				if (index < 0)
 					index = options.Length - 1;

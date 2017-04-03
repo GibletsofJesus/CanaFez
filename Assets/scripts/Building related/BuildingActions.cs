@@ -21,6 +21,8 @@ public class BuildingActions : MonoBehaviour
 	AudioClip flashSound;
 	[SerializeField]
 	flash Antenna;
+	[SerializeField]
+	int pointsForLandingHere = 100;
 
 	public void Trigger ()
 	{
@@ -36,6 +38,7 @@ public class BuildingActions : MonoBehaviour
 
 		if (flashSound) {
 			SoundManager.instance.playSound(flashSound,1,Random.Range(.85f,1.15f));
+			UIScoreManager.instance.SpawnText(Camera.main.WorldToViewportPoint(PlayerCharacter.instance.transform.position),pointsForLandingHere);
 		}
 
 		for (int i = 0; i < 2; i++) {

@@ -20,16 +20,11 @@ public class PlayerCharacter : MonoBehaviour
 
 	#region all the prefab shiz
 
-	float m_MovingTurnSpeed = 480;
-	float m_StationaryTurnSpeed = 720;
-	float m_JumpPower = 10f;
-	float m_GravityMultiplier = 2f;
-	float m_RunCycleLegOffset = 0.2f;
+	float m_MovingTurnSpeed = 480, m_StationaryTurnSpeed = 720, m_JumpPower = 10f;
+	float m_GravityMultiplier = 2f, m_RunCycleLegOffset = 0.2f;
 	//specific to the character in sample assets, will need to be modified to work with others
-	float m_MoveSpeedMultiplier = 1.2f, maxSpeedMultiplier = 4;
-	float m_AnimSpeedMultiplier = 1.2f;
-	float m_GroundCheckDistance = 0.3f;
-
+	float m_MoveSpeedMultiplier = 1.2f, m_AnimSpeedMultiplier = 1.2f, m_GroundCheckDistance = 0.3f;
+	public float maxSpeedMultiplier = 4;
 	[Header("Movement/state")]
 	public bool respawning;
 	//Vertical speed modifiers
@@ -53,6 +48,8 @@ public class PlayerCharacter : MonoBehaviour
 	[SerializeField]
 	Transform startingPosition;
 	[Header("Jumping")]
+	[HideInInspector]
+	public float jumpAmp = 1;
 	[SerializeField]
 	Transform jumpBar;
 	SpriteRenderer jumpBarSprite;
@@ -184,14 +181,13 @@ public class PlayerCharacter : MonoBehaviour
 
 	void AdjustFOV ()
 	{
-
 		float v = Input.GetAxis("RSVertical");
 		if (Mathf.Abs(v) < 0.1f) {
 			Vector3 angles = Camera.main.transform.localRotation.eulerAngles;
 			angles.x = 0;
 			Camera.main.transform.localRotation = Quaternion.Euler(angles);
 			//If the player ever drifts above the upper third or below botton quarter of the screen, adjust the offset of the camera accordinly
-			if (Camera.main.WorldToViewportPoint(transform.position).y < 0.25f) {
+			if (Camera.main.WorldToViewportPoint(transform.position).y < 0.15f) {
 				PerspectiveChanger.instance.offset.y -= Time.deltaTime * 5;
 			}
 			else if (Camera.main.WorldToViewportPoint(transform.position).y > 0.6f) {
@@ -481,7 +477,7 @@ public class PlayerCharacter : MonoBehaviour
 		// check whether conditions are right to allow a jump and if so, do a jump.
 		if (jump && !crouch && (m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded"))) {
 			
-			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, (m_JumpPower + (jumpTimer * 5)), m_Rigidbody.velocity.z);
+			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, (m_JumpPower + (jumpTimer * 5)) * jumpAmp, m_Rigidbody.velocity.z);
 
 			jumpStartPosition = transform.position;
 			m_IsGrounded = false;

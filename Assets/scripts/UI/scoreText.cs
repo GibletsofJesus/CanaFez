@@ -10,45 +10,80 @@ public class scoreText : MonoBehaviour
 	[SerializeField]
 	float moveSpeed = 1;
 	string s;
+	int displayPoints, points;
 
-	public void Setup (Vector3 startPos, int points)
+	public void Setup (Vector3 startPos, int _points)
 	{
-		s = "+" + points;
+		flashing = false;
+		displayPoints = 0;
+		points = _points;
+		s = "+" + displayPoints;
 		foreach (TextMesh t in TextElements) {
 			t.text = s;
 		}
-		accuratePosition = startPos;
+		//transform.localPosition = startPos;
 	}
 
-	Vector3 accuratePosition;
+	[SerializeField]
+	bool flashing;
 
 	IEnumerator endFlash ()
 	{
-		foreach (TextMesh t in TextElements) {
-			t.text = "";
+		flashing = true;
+
+		if (displayPoints < points)
+			yield return null;
+		
+		for (int i = 0; i < 10; i++) {
+			foreach (TextMesh t in TextElements) {
+				t.text = "";
+			}
+			yield return new WaitForEndOfFrame ();
+			yield return new WaitForEndOfFrame ();
+			yield return new WaitForEndOfFrame ();
+			yield return new WaitForEndOfFrame ();
+			foreach (TextMesh t in TextElements) {
+				t.text = s;
+			}
+			yield return new WaitForEndOfFrame ();
+			yield return new WaitForEndOfFrame ();
+			yield return new WaitForEndOfFrame ();
+			yield return new WaitForEndOfFrame ();
 		}
-		yield return new WaitForEndOfFrame ();
-		foreach (TextMesh t in TextElements) {
-			t.text = s;
-		}
+		ReturnToPool();
 	}
 
 	void ReturnToPool ()
 	{
 		UIScoreManager.instance.ActiveTexts.Remove(gameObject);
+		UIScoreManager.instance.InactiveTexts.Add(gameObject);
 		gameObject.SetActive(false);
 	}
 
 	void Update ()
 	{
+		if (displayPoints < points) {
+			if (points - displayPoints > 1) {
+				displayPoints += 2;
+				UIScoreManager.instance.points += 2;
+			}
+			else {
+				displayPoints++;
+				UIScoreManager.instance.points++;
+			}
+			s = "+" + displayPoints;
+			foreach (TextMesh t in TextElements) {
+				t.text = s;
+			}
+		}
+		transform.localRotation = Quaternion.Euler(Vector3.zero);
+
 		//Round y pos to mulitples of 1.2
-		if (transform.localPosition.y < 5) {
-			accuratePosition.y += Time.deltaTime * moveSpeed;
-			transform.localPosition = new Vector3 (accuratePosition.x, accuratePosition.y, 0);
+		if (transform.localPosition.y < 5 && !flashing) {
+			transform.localPosition = new Vector3 (transform.localPosition.x, transform.localPosition.y + Time.deltaTime * moveSpeed, 0);
 		}
-		else {
-		
-		}
-		//Travel upwards until y pos euqals 5, then flash and dissapear
+		else if (!flashing) {
+				StartCoroutine(endFlash());
+			}
 	}
 }

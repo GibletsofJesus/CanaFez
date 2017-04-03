@@ -18,6 +18,8 @@ public class UpgradeZone : MonoBehaviour
 		if (col.tag == "Player" && !collected) {
 			if (UpgradeManager.instance.availableUpgrades.Count > 0)
 				GameStateManager.instance.ChangeState(GameStateManager.GameStates.STATE_UPGRADE);
+			else
+				UIScoreManager.instance.SpawnText(Camera.main.ScreenToViewportPoint(PlayerCharacter.instance.transform.position),500);
 			zone.Play("pointer_stop");
 			collected = true;
 		}

@@ -29,7 +29,10 @@ public class UpgradeManager : MonoBehaviour
 		additionalTime,
 		additionalJumpTime,
 		lessGravity,
-		homingLanding
+		fasterStrafe,
+		moreJumpPower,
+		fasterRunning
+		//homingLanding
 	}
 
 	public class Upgrade
@@ -42,19 +45,29 @@ public class UpgradeManager : MonoBehaviour
 				case upgradeType.additionalJumpTime:
 					//Max jump timer + 20% from base
 					PlayerCharacter.instance.maxJumpTimer += 0.5f;
-					//Do nothing yet
 					break;
 				case upgradeType.additionalTime:
-					GameTimer.instance.timeElapsed -= 20;
+					GameTimer.instance.timeElapsed -= 40;
 					break;
 				case upgradeType.lessGravity:
 					Vector3 grav = Physics.gravity;
 					grav.y /= 2;
 					Physics.gravity = grav;
 					break;
-				case upgradeType.homingLanding:
-					//Do nothing yet
+				case upgradeType.fasterStrafe:
+					//Max jump timer + 20% from base
+					PlayerCharacter.instance.maxStrafeSpeed *= 1.5f;
 					break;
+				case upgradeType.moreJumpPower:
+					//Max jump timer + 20% from base
+					PlayerCharacter.instance.jumpAmp *= 1.25f;
+					break;
+				case upgradeType.fasterRunning:
+					PlayerCharacter.instance.maxSpeedMultiplier *= 1.5f;
+					break;
+			/*case upgradeType.homingLanding:
+					//SOME DAY
+					break;*/
 			}
 		}
 	}
@@ -62,12 +75,6 @@ public class UpgradeManager : MonoBehaviour
 	// Use this for initialization
 	void Start ()
 	{
-		foreach (upgradeType ut in System.Enum.GetValues(typeof(upgradeType))) {
-			availableUpgrades.Add(new Upgrade{ type = ut });
-		}
-		foreach (upgradeType ut in System.Enum.GetValues(typeof(upgradeType))) {
-			availableUpgrades.Add(new Upgrade{ type = ut });
-		}
 		foreach (upgradeType ut in System.Enum.GetValues(typeof(upgradeType))) {
 			availableUpgrades.Add(new Upgrade{ type = ut });
 		}
@@ -110,14 +117,23 @@ public class UpgradeManager : MonoBehaviour
 					upgradeText [i].text = "+0.5 seconds to jump charge time";
 					break;
 				case upgradeType.additionalTime:
-					upgradeText [i].text = "+20 seconds to game timer";
-					break;
-				case upgradeType.homingLanding:
-					upgradeText [i].text = "";
+					upgradeText [i].text = "+40 seconds to game timer";
 					break;
 				case upgradeType.lessGravity:
 					upgradeText [i].text = "-50% gravity";
 					break;
+				case upgradeType.fasterRunning:
+					upgradeText [i].text = "+50% to max running speed";
+					break;
+				case upgradeType.fasterStrafe:
+					upgradeText [i].text = "+50% strafing speed";
+					break;
+				case upgradeType.moreJumpPower:
+					upgradeText [i].text = "+25% power to jumps";
+					break;
+			/*case upgradeType.homingLanding:
+					upgradeText [i].text = "";
+					break;*/
 			}
 		}
 
@@ -128,14 +144,16 @@ public class UpgradeManager : MonoBehaviour
 		header.playbackTime = 1.5f;
 
 		//Fire button for selection
-		while (!CrossPlatformInputManager.GetButton("Jump")) {
+		while (!CrossPlatformInputManager.GetButtonDown("Jump")) {
 			yield return null;
 		}
 		allowInput = false;
 		//Don't do this for all, only the active ones (might be only 2)
-		for (int i = 0; i < options.Length; i++)
+		for (int i = 0; i < options.Length; i++) {
+			if (i != selectionIndex)
+				availableUpgrades.Add(options [i]);
 			optionAnimators [i].Play(i == selectionIndex ? "upgrade_select" : "upgrade_down");
-		//Play some sort of sooound
+		}//Play some sort of sooound
 		SoundManager.instance.playSound(selectionSound);
 		options [selectionIndex].Activate();
 		header.speed = 1;
