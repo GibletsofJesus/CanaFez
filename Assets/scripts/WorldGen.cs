@@ -13,6 +13,7 @@ public class WorldGen : MonoBehaviour
 		public string name;
 		public Building buildingObject;
 		public int sizeX, sizeY;
+		public float placementProbability;
 	}
 
 	[System.Serializable]
@@ -140,6 +141,10 @@ public class WorldGen : MonoBehaviour
 			//Which building to place
 			//This will eventually be much better system, but it'll do FOR NOW
 			int index = Random.Range(1,buildingPrefabs.Length);
+
+			while (Random.value > buildingPrefabs [index].placementProbability)
+				index = Random.Range(1,buildingPrefabs.Length);
+
 			int rotAttempt = 0;
 
 			int tryThisOne = Random.Range(0,possiblePlacements.Count);
@@ -455,8 +460,9 @@ public class WorldGen : MonoBehaviour
 			}
 		}
 
-		if (!PlayerCharacter.instance.lastSpawner)
+		if (!PlayerCharacter.instance.lastSpawner) {
 			PlayerCharacter.instance.lastSpawner = spawners [spawners.Count / 2];
+		}
 		yield return null;
 	}
 

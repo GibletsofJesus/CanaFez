@@ -116,17 +116,13 @@ public class PerspectiveChanger : MonoBehaviour
 		WorldGen.instance.GenerateSillyName();
 		yield return new WaitForSeconds (0.23f);
 		_anim.SetFloat("rev",0);
-		_anim.playbackTime = 0;
+		transitionThing.gameObject.SetActive(false);
 		yield return new WaitForSeconds (2f);
 		while (WorldGen.instance.generating)
 			yield return null;
 
 		_anim.playbackTime = 0;
 		PlayerCharacter.instance.transform.position = PlayerCharacter.instance.lastSpawner.transform.position + (Vector3.up * 3);
-
-		//RIGHT BETTER FUCKING MAKE SURE THIS SHIT IS FIXED
-		_anim.enabled = false;
-		transitionThing.material.SetFloat("_SliceAmount",1);
 
 		lerpSpeed = 2;
 		yield return new WaitForSeconds (1);

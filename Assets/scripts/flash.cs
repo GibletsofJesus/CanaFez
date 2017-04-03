@@ -8,6 +8,7 @@ public class flash : MonoBehaviour
 	public Image img;
 	public Text t;
 	public TextMesh tm;
+	public LineRenderer[] lrs;
 	bool flashOn;
 	int i = 0;
 	public int flashSpeed;
@@ -26,6 +27,10 @@ public class flash : MonoBehaviour
 				img.enabled = !img.enabled;
 			if (t)
 				t.enabled = !t.enabled;
+			foreach (LineRenderer lr  in lrs) {
+				lr.startColor = lr.startColor == meshCols [0] ? meshCols [1] : meshCols [0];
+				lr.endColor = lr.endColor == meshCols [0] ? meshCols [1] : meshCols [0];
+			}
 			flashOn = false;
 		}
 		else {

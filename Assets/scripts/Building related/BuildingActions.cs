@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class BuildingActions : MonoBehaviour
 {
+	public static BuildingActions activeSpawner;
+
 	[SerializeField]
 	GameObject minimapHighlight;
 	bool triggered;
@@ -17,6 +19,8 @@ public class BuildingActions : MonoBehaviour
 	Texture2D[] textures;
 	[SerializeField]
 	AudioClip flashSound;
+	[SerializeField]
+	flash Antenna;
 
 	public void Trigger ()
 	{
@@ -46,6 +50,12 @@ public class BuildingActions : MonoBehaviour
 
 	void OnTriggerEnter (Collider col)
 	{
+		if (associatedBuilding) {
+			if (associatedBuilding.spawner.gameObject.activeSelf) {
+				if (PlayerCharacter.instance.lastSpawner != associatedBuilding.spawner || GameTimer.instance.timeElapsed < 3)
+					StartCoroutine(SetSpawner(triggered));
+			}
+		}
 		if (!triggered) {
 			foreach (BuildingActions b in associatedTriggers) {
 				b.Trigger();
@@ -57,9 +67,32 @@ public class BuildingActions : MonoBehaviour
 			minimapHighlight.SetActive(true);
 			triggered = true;
 		}
-		if (associatedBuilding) {
-			if (associatedBuilding.spawner.gameObject.activeSelf)
-				PlayerCharacter.instance.lastSpawner = associatedBuilding.spawner;
+	}
+
+	public void DeselectSpawner ()
+	{
+		foreach (LineRenderer lr in Antenna.lrs) {
+			lr.startColor = Antenna.meshCols [1];
+			lr.endColor = Antenna.meshCols [1];
 		}
+	}
+
+	IEnumerator SetSpawner (bool b)
+	{
+		if (activeSpawner)
+			activeSpawner.DeselectSpawner();
+		Antenna.enabled = true;
+
+		if (b)
+			SoundManager.instance.playSound(flashSound,1,Random.Range(.85f,1.15f));			
+		
+		yield return	new WaitForSeconds (0.75f);
+		Antenna.enabled = false;
+		foreach (LineRenderer lr in Antenna.lrs) {
+			lr.startColor = Antenna.meshCols [0];
+			lr.endColor = Antenna.meshCols [0];
+		}
+		activeSpawner = this;
+		PlayerCharacter.instance.lastSpawner = associatedBuilding.spawner;
 	}
 }

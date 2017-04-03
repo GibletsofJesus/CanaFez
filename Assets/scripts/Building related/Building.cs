@@ -10,6 +10,10 @@ public class Building : MonoBehaviour
 	[SerializeField]
 	public Animator spawner, upgradeZone;
 	public float result;
+	[SerializeField]
+	AudioSource radio;
+	[SerializeField]
+	AudioClip[] tunes;
 
 	public void SetPavementHeight (float f)
 	{
@@ -18,6 +22,12 @@ public class Building : MonoBehaviour
 
 	public Animator SetupSpawner (bool respawn)
 	{
+		if (radio) {
+			radio.clip = tunes [Random.Range(0,tunes.Length)]; 
+			radio.Play();
+			radio.loop = true;
+		}
+
 		if (upgradeZone)
 			UpgradeManager.instance.AllZones.Add(upgradeZone);
 

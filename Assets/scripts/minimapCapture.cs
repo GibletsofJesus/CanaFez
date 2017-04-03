@@ -9,7 +9,6 @@ using UnityEditor;
 
 public class minimapCapture : MonoBehaviour
 {
-
 	public static minimapCapture instance;
 
 	[SerializeField]
@@ -25,6 +24,12 @@ public class minimapCapture : MonoBehaviour
 	void Start ()
 	{
 		instance = this;
+	}
+
+	void Update ()
+	{
+		if (!instance)
+			instance = this;
 	}
 
 	public void Capture ()

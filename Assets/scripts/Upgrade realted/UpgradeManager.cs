@@ -48,7 +48,9 @@ public class UpgradeManager : MonoBehaviour
 					GameTimer.instance.timeElapsed -= 20;
 					break;
 				case upgradeType.lessGravity:
-					PlayerCharacter.instance.lowGravity = true;
+					Vector3 grav = Physics.gravity;
+					grav.y /= 2;
+					Physics.gravity = grav;
 					break;
 				case upgradeType.homingLanding:
 					//Do nothing yet
@@ -86,7 +88,6 @@ public class UpgradeManager : MonoBehaviour
 
 	public IEnumerator SetupUI () //and also I guess to all the upgrade shit
 	{
-		Debug.Log("active");
 		yield return new WaitForEndOfFrame ();
 		selectionIndex = 1;
 		allowInput = true;
@@ -121,10 +122,10 @@ public class UpgradeManager : MonoBehaviour
 		}
 
 		header.Play("city intro");
+		header.GetComponentInChildren<Text>().text = "Choose upgrade";
 		yield return new WaitForSeconds (0.5f);
 		header.speed = 0;
 		header.playbackTime = 1.5f;
-		header.GetComponentInChildren<Text>().text = "Choose upgrade";
 
 		//Fire button for selection
 		while (!CrossPlatformInputManager.GetButton("Jump")) {

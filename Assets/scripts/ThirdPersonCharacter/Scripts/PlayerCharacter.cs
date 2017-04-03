@@ -56,6 +56,8 @@ public class PlayerCharacter : MonoBehaviour
 	[SerializeField]
 	Transform jumpBar;
 	SpriteRenderer jumpBarSprite;
+	[SerializeField]
+	SpriteRenderer[] jumpBarMarkers;
 	float jumpTimer = 0;
 	Vector3 jumpStartPosition;
 	[HideInInspector]
@@ -73,7 +75,7 @@ public class PlayerCharacter : MonoBehaviour
 	[SerializeField]
 	AudioClip[] footsteps;
 	[SerializeField]
-	AudioClip stompLandingSound, deathSound, doorOpen, doorClose;
+	AudioClip stompLandingSound, deathSound, doorOpen, doorClose, jumpSound;
 
 	[Header("Cool FX")]
 	[SerializeField]
@@ -123,6 +125,7 @@ public class PlayerCharacter : MonoBehaviour
 		m_Rigidbody.angularVelocity = Vector3.zero;
 		transform.position = lastSpawner.transform.position;
 		m_Rigidbody.isKinematic = false;
+		PerspectiveChanger.instance.offset.y = 3.5f;
 		//yield return new WaitForSeconds (.5f);
 
 		Quaternion q = Quaternion.AngleAxis(PerspectiveChanger.instance.GetWorldOrientation(),Vector3.up);
@@ -175,6 +178,48 @@ public class PlayerCharacter : MonoBehaviour
 		}
 	}
 
+	GameObject canvasObject;
+	[SerializeField]
+	AnimationCurve FovZOffset;
+
+	void AdjustFOV ()
+	{
+
+		float v = Input.GetAxis("RSVertical");
+		if (Mathf.Abs(v) < 0.1f) {
+			Vector3 angles = Camera.main.transform.localRotation.eulerAngles;
+			angles.x = 0;
+			Camera.main.transform.localRotation = Quaternion.Euler(angles);
+			//If the player ever drifts above the upper third or below botton quarter of the screen, adjust the offset of the camera accordinly
+			if (Camera.main.WorldToViewportPoint(transform.position).y < 0.25f) {
+				PerspectiveChanger.instance.offset.y -= Time.deltaTime * 5;
+			}
+			else if (Camera.main.WorldToViewportPoint(transform.position).y > 0.6f) {
+					PerspectiveChanger.instance.offset.y += Time.deltaTime * 5;
+				}
+				else {
+					PerspectiveChanger.instance.offset.y = Mathf.Lerp(PerspectiveChanger.instance.offset.y,3.5f,Time.deltaTime * 15);
+				}
+
+			if (!canvasObject)
+				canvasObject = Camera.main.GetComponentInChildren<Canvas>().gameObject;
+			else {
+				Vector3 pos = canvasObject.transform.localPosition;
+				pos.z = FovZOffset.Evaluate(((Camera.main.fieldOfView - 80) / 40));
+				canvasObject.transform.localPosition = pos;
+			}
+			Camera.main.fieldOfView = Mathf.Lerp(
+				Camera.main.fieldOfView,
+				Mathf.Clamp(80 + Mathf.Abs(m_Rigidbody.velocity.y),10,120),
+				Time.deltaTime * (m_IsGrounded ? 5 : 1));
+		}
+		else {
+			Vector3 angles = Camera.main.transform.localRotation.eulerAngles;
+			angles.x = v * 15f;
+			Camera.main.transform.localRotation = Quaternion.Euler(angles);
+		}
+	}
+
 	public void UnPause ()
 	{
 		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
@@ -196,13 +241,11 @@ public class PlayerCharacter : MonoBehaviour
 	[SerializeField]
 	Color[] basicColors;
 	int flashIndex = 0;
-	[SerializeField]
-	AudioClip sound;
-	[SerializeField]
-	float[] pitchMod;
 
 	public void Move (Vector3 move, bool crouch)
 	{
+		AdjustFOV();
+
 		#region Stop the player from moving along another axis
 		if (movingOnXAxis()) {
 			move.z = 0;
@@ -216,17 +259,12 @@ public class PlayerCharacter : MonoBehaviour
 		bool jump = false;
 		if (CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer <= maxJumpTimer) {
 			SoundManager.instance.managedAudioSources [1].volumeLimit = Mathf.Lerp(0.1f,0.5f,jumpTimer / maxJumpTimer);
-			SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Lerp(pitchMod [0],pitchMod [1],jumpTimer / maxJumpTimer);
+			SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Lerp(0.0625f,maxJumpTimer / 10,jumpTimer / maxJumpTimer);
 			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
 
 			jumpTimer += Time.deltaTime;
 			if (jumpTimer > maxJumpTimer) {
-				//m_IsGrounded = false;
-
-				//Don't force a jump out
-				//jump = true;
-
-				SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Lerp(pitchMod [0],pitchMod [1] + ((float)flashIndex / 100f),jumpTimer / maxJumpTimer);
+				SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Lerp(.0625f,(maxJumpTimer / 10) + ((float)flashIndex / 100f),jumpTimer / maxJumpTimer);
 				jumpTimer = maxJumpTimer;
 				if (!jumpBarSprite)
 					jumpBarSprite = jumpBar.GetComponentInChildren<SpriteRenderer>();
@@ -239,12 +277,16 @@ public class PlayerCharacter : MonoBehaviour
 			}
 			jumpBar.localScale = new Vector3 (Mathf.Lerp(0,61,jumpTimer / maxJumpTimer), 1, 1);
 		}
-		else
-			jumpBar.localScale = new Vector3 (Mathf.Lerp(jumpBar.transform.localScale.x,0,Time.deltaTime * 3), 1, 1);
-		
-		if (!CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer > 0) {
-			SoundManager.instance.playSound(sound,1,pitchMod [2]);
+		else {
+			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = 0;
+			jumpBar.localScale = new Vector3 (Mathf.Lerp(jumpBar.transform.localScale.x,0,Time.deltaTime * 10), 1, 1);
+		}
+		for (int i = 0; i < jumpBarMarkers.Length; i++) {
+			jumpBarMarkers [i].transform.localPosition = new Vector3 (Mathf.Clamp(-0.62f + ((1f / maxJumpTimer) * i),-0.6f,0.62f), 0);
+		}
 
+		if (!CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer > 0) {
+			SoundManager.instance.playSound(jumpSound,1,1.5f);
 			SoundManager.instance.managedAudioSources [1].volumeLimit = 0;
 			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
 			flashIndex = 0;
@@ -434,14 +476,12 @@ public class PlayerCharacter : MonoBehaviour
 		}
 	}
 
-	public bool lowGravity;
-
 	void HandleGroundedMovement (bool crouch, bool jump)
 	{			
 		// check whether conditions are right to allow a jump and if so, do a jump.
 		if (jump && !crouch && (m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded"))) {
 			
-			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, (m_JumpPower + (jumpTimer * 5)) * (lowGravity ? 1.5f : 1), m_Rigidbody.velocity.z);
+			m_Rigidbody.velocity = new Vector3 (m_Rigidbody.velocity.x, (m_JumpPower + (jumpTimer * 5)), m_Rigidbody.velocity.z);
 
 			jumpStartPosition = transform.position;
 			m_IsGrounded = false;
