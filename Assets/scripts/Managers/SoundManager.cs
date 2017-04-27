@@ -57,9 +57,9 @@ public class SoundManager : MonoBehaviour
 	public void ChangeMoveSound (bool PausePlay, float pitch)
 	{
 		if (PausePlay)//True for play/resume, false for pause
-            managedAudioSources [0].AudioSrc.UnPause();
+            managedAudioSources [1].AudioSrc.UnPause();
 		else
-			managedAudioSources [0].AudioSrc.Pause();
+			managedAudioSources [1].AudioSrc.Pause();
 		
 		//managedAudioSources [0].AudioSrc.pitch = pitch * (SlowMo ? 0.1f : 1);
 	}
@@ -71,7 +71,7 @@ public class SoundManager : MonoBehaviour
 		foreach (AudioSource a in audioSrcs) {
 			a.volume = newVol;
 		}
-		for (int i = 0; i < managedAudioSources.Count; i++) {
+		for (int i = 1; i < managedAudioSources.Count; i++) {
 			managedAudioSources [i].AudioSrc.volume = volumeMultiplayer * managedAudioSources [i].volumeLimit;
 		}
 	}

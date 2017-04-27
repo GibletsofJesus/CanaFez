@@ -133,11 +133,11 @@ public class PlayerCharacter : MonoBehaviour
 
 		SoundManager.instance.playSound(doorOpen);
 		lastSpawner.Play("rooftopDoor_open");
-		yield return new WaitForSeconds (1);
-		respawning = false;
-		yield return new WaitForSeconds (0.45f);
+		yield return new WaitForSeconds (.3f);
 		SoundManager.instance.playSound(doorClose);
 		//Move forward a little bit
+		yield return new WaitForSeconds (0.5f);
+		respawning = false;
 		//Then return control to player
 	}
 
@@ -166,7 +166,7 @@ public class PlayerCharacter : MonoBehaviour
 
 		// the anim speed multiplier allows the overall speed of walking/running to be tweaked in the inspector,
 		// which affects the movement speed because of the root motion.
-		if (m_IsGrounded && move.magnitude > 0) {
+		if (m_IsGrounded && !m_Crouching && move.magnitude > 0) {
 			m_Animator.speed = m_AnimSpeedMultiplier;
 		}
 		else {
@@ -179,15 +179,22 @@ public class PlayerCharacter : MonoBehaviour
 	[SerializeField]
 	AnimationCurve FovZOffset;
 
-	void AdjustFOV ()
+	void AdjustCamera ()
 	{
 		float v = Input.GetAxis("RSVertical");
+
+		//If we're not pushing the camera up or down with the right analog stick
 		if (Mathf.Abs(v) < 0.1f) {
+			#region Move the camera to better centre the player on screen
 			Vector3 angles = Camera.main.transform.localRotation.eulerAngles;
 			angles.x = 0;
 			Camera.main.transform.localRotation = Quaternion.Euler(angles);
+
 			//If the player ever drifts above the upper third or below botton quarter of the screen, adjust the offset of the camera accordinly
-			if (Camera.main.WorldToViewportPoint(transform.position).y < 0.15f) {
+
+			//Player position has fallen below the lower third of the screen
+			if (Camera.main.WorldToViewportPoint(transform.position).y < 0.3f && !m_IsGrounded) {
+				//move the camera down to bring the view of the player upwards
 				PerspectiveChanger.instance.offset.y -= Time.deltaTime * 5;
 			}
 			else if (Camera.main.WorldToViewportPoint(transform.position).y > 0.6f) {
@@ -196,7 +203,9 @@ public class PlayerCharacter : MonoBehaviour
 				else {
 					PerspectiveChanger.instance.offset.y = Mathf.Lerp(PerspectiveChanger.instance.offset.y,3.5f,Time.deltaTime * 15);
 				}
+			#endregion
 
+			#region Move the UI canvas back and forth to compensate for the change in FOV, keep the UI the small size
 			if (!canvasObject)
 				canvasObject = Camera.main.GetComponentInChildren<Canvas>().gameObject;
 			else {
@@ -204,32 +213,40 @@ public class PlayerCharacter : MonoBehaviour
 				pos.z = FovZOffset.Evaluate(((Camera.main.fieldOfView - 80) / 40));
 				canvasObject.transform.localPosition = pos;
 			}
+			#endregion
+
+			#region scale FOV based on vertical velocity
 			Camera.main.fieldOfView = Mathf.Lerp(
 				Camera.main.fieldOfView,
 				Mathf.Clamp(80 + Mathf.Abs(m_Rigidbody.velocity.y),10,120),
 				Time.deltaTime * (m_IsGrounded ? 5 : 1));
+			#endregion
 		}
 		else {
+			#region Angle the camera up or down if the right analoag stick is being moved
 			Vector3 angles = Camera.main.transform.localRotation.eulerAngles;
 			angles.x = v * 15f;
 			Camera.main.transform.localRotation = Quaternion.Euler(angles);
+			#endregion
 		}
 	}
 
 	public void UnPause ()
 	{
-		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
+		SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
 		m_Rigidbody.velocity = UnPausedVelocity;
 		m_Rigidbody.isKinematic = false;
+		GameTimer.instance.paused = false;
 	}
 
 	Vector3 UnPausedVelocity;
 
 	public void Pause ()
 	{
-		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = 0;
+		SoundManager.instance.managedAudioSources [1].AudioSrc.volume = 0;
 		UnPausedVelocity = m_Rigidbody.velocity;
 		m_Rigidbody.isKinematic = true;
+		GameTimer.instance.paused = true;
 	}
 
 	#region movement
@@ -240,7 +257,7 @@ public class PlayerCharacter : MonoBehaviour
 
 	public void Move (Vector3 move, bool crouch)
 	{
-		AdjustFOV();
+		AdjustCamera();
 
 		#region Stop the player from moving along another axis
 		if (movingOnXAxis()) {
@@ -253,14 +270,14 @@ public class PlayerCharacter : MonoBehaviour
 		#region big yumps
 
 		bool jump = false;
-		if (CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer <= maxJumpTimer) {
-			SoundManager.instance.managedAudioSources [1].volumeLimit = Mathf.Lerp(0.1f,0.5f,jumpTimer / maxJumpTimer);
-			SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Lerp(0.0625f,maxJumpTimer / 10,jumpTimer / maxJumpTimer);
-			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
+		if (Input.GetButton("Jump") && m_IsGrounded && jumpTimer <= maxJumpTimer) {
+			SoundManager.instance.managedAudioSources [0].volumeLimit = Mathf.Lerp(0.1f,0.5f,jumpTimer / maxJumpTimer);
+			SoundManager.instance.managedAudioSources [0].AudioSrc.pitch = Mathf.Lerp(0.0625f,maxJumpTimer / 10,jumpTimer / maxJumpTimer);
+			SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
 
 			jumpTimer += Time.deltaTime;
 			if (jumpTimer > maxJumpTimer) {
-				SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Lerp(.0625f,(maxJumpTimer / 10) + ((float)flashIndex / 100f),jumpTimer / maxJumpTimer);
+				SoundManager.instance.managedAudioSources [0].AudioSrc.pitch = Mathf.Lerp(.0625f,(maxJumpTimer / 10) + ((float)flashIndex / 100f),jumpTimer / maxJumpTimer);
 				jumpTimer = maxJumpTimer;
 				if (!jumpBarSprite)
 					jumpBarSprite = jumpBar.GetComponentInChildren<SpriteRenderer>();
@@ -274,17 +291,17 @@ public class PlayerCharacter : MonoBehaviour
 			jumpBar.localScale = new Vector3 (Mathf.Lerp(0,61,jumpTimer / maxJumpTimer), 1, 1);
 		}
 		else {
-			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = 0;
+			SoundManager.instance.managedAudioSources [0].AudioSrc.volume = 0;
 			jumpBar.localScale = new Vector3 (Mathf.Lerp(jumpBar.transform.localScale.x,0,Time.deltaTime * 10), 1, 1);
 		}
 		for (int i = 0; i < jumpBarMarkers.Length; i++) {
 			jumpBarMarkers [i].transform.localPosition = new Vector3 (Mathf.Clamp(-0.62f + ((1f / maxJumpTimer) * i),-0.6f,0.62f), 0);
 		}
 
-		if (!CrossPlatformInputManager.GetButton("Jump") && m_IsGrounded && jumpTimer > 0) {
+		if (!Input.GetButton("Jump") && m_IsGrounded && jumpTimer > 0) {
 			SoundManager.instance.playSound(jumpSound,1,1.5f);
-			SoundManager.instance.managedAudioSources [1].volumeLimit = 0;
-			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
+			SoundManager.instance.managedAudioSources [0].volumeLimit = 0;
+			SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
 			flashIndex = 0;
 			if (jumpBarSprite)
 				jumpBarSprite.color = Color.white;
@@ -299,82 +316,90 @@ public class PlayerCharacter : MonoBehaviour
 			dir = (int)lastSpawner.transform.localRotation.eulerAngles.y >= Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation());
 			//dir = (int)lastSpawner.transform.localRotation.eulerAngles.y == 90 && Mathf.RoundToInt(PerspectiveChanger.instance.GetWorldOrientation()) == 90 ? false : dir;
 
-			move = lastSpawner.transform.right * 0.7f * (dir ? -1f : 1f);
+			move = lastSpawner.transform.right * 1.4f * (dir ? -1f : 1f);
 			crouch = false;
 		}
 		else if (respawning) {
 				move = Vector3.zero;
 			}
 		#endregion
-
-		#region normal movement...?
-		if (!rolling) {
-			CheckDeath();
-			if (CrossPlatformInputManager.GetButtonDown("Fire1")) {
-				m_Rigidbody.isKinematic = true;
-				StartCoroutine(respawnEffect());
-			}
-
-			// convert the world relative moveInput vector into a local-relative
-			// turn amount and forward amount required to head in the desired
-			// direction.
-			if (move.magnitude > 1f)
-				move.Normalize();
-			move = transform.InverseTransformDirection(move);
-
-			//Slight extra bit of acceleration
-			if (!respawning) {
-				if (Mathf.Abs(CrossPlatformInputManager.GetAxis("Horizontal")) > .75f) {
-					running = true;
-				}
-				else {
-					m_MoveSpeedMultiplier = 1 + Mathf.Abs(CrossPlatformInputManager.GetAxis("Horizontal")) / 4f;
-					running = false;
-				}
-				if (running && m_MoveSpeedMultiplier < maxSpeedMultiplier && m_IsGrounded) {
-					m_MoveSpeedMultiplier += Time.fixedDeltaTime;
-					if (m_MoveSpeedMultiplier > maxSpeedMultiplier)
-						m_MoveSpeedMultiplier = maxSpeedMultiplier;
-				}
-				//Dust poofs on the feet for running fast
-				if (Mathf.Abs(m_Rigidbody.velocity.magnitude) > runningFXSpeed)
-					checkFootCollision();
-			}
-			CheckGroundStatus();
-			move = Vector3.ProjectOnPlane(move,m_GroundNormal);
-			m_TurnAmount = Mathf.Atan2(move.x,move.z);
-			m_ForwardAmount = move.z;
-
-			// control and velocity handling is different when grounded and airborne:
-			if (m_IsGrounded) {
-				ApplyExtraTurnRotation();
-				HandleGroundedMovement(crouch,jump);
-			}
 			else {
+				#region regular movement
+				if (!rolling) {
+					CheckDeath();
+					if (Input.GetButtonDown("Fire1")) {
+						m_Rigidbody.isKinematic = true;
+						StartCoroutine(respawnEffect());
+					}
+
+					//Slight extra bit of acceleration
+					if (!respawning) {
+						if (Mathf.Abs(Input.GetAxis("Horizontal")) > .75f) {
+							running = true;
+						}
+						else {
+							m_MoveSpeedMultiplier = 1 + Mathf.Abs(Input.GetAxis("Horizontal")) / 4f;
+							running = false;
+						}
+						if (running && m_MoveSpeedMultiplier < maxSpeedMultiplier && m_IsGrounded) {
+							m_MoveSpeedMultiplier += Time.fixedDeltaTime;
+							if (m_MoveSpeedMultiplier > maxSpeedMultiplier)
+								m_MoveSpeedMultiplier = maxSpeedMultiplier;
+						}
+						//Dust poofs on the feet for running fast
+						if (Mathf.Abs(m_Rigidbody.velocity.magnitude) > runningFXSpeed)
+							checkFootCollision();
+					}
+				}
+				#endregion
+			}
+
+		// convert the world relative moveInput vector into a local-relative
+		// turn amount and forward amount required to head in the desired
+		// direction.
+		if (move.magnitude > 1f)
+			move.Normalize();
+		
+		move = transform.InverseTransformDirection(move);
+
+		if (!rolling)
+			CheckGroundStatus();
+		move = Vector3.ProjectOnPlane(move,m_GroundNormal);
+		m_TurnAmount = Mathf.Atan2(move.x,move.z);
+		m_ForwardAmount = move.z;
+
+		// control and velocity handling is different when grounded and airborne:
+		if (m_IsGrounded) {
+			ApplyExtraTurnRotation();
+			HandleGroundedMovement(rolling,jump);
+		}
+		else if (!rolling) {
 				HandleAirborneMovement();
 			}
-			UpdateAnimator(move);
-		}
-		#endregion
+		UpdateAnimator(move);
 
+		if (rolling) {
+			Debug.Log("Grounded: " + m_IsGrounded);
+			Debug.Log("Crouching: " + m_Crouching);
+		}
 		#region Wooshing effects
 		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
-			SoundManager.instance.managedAudioSources [0].volumeLimit = (Mathf.Lerp(
-				SoundManager.instance.managedAudioSources [0].volumeLimit,
+			SoundManager.instance.managedAudioSources [1].volumeLimit = (Mathf.Lerp(
+				SoundManager.instance.managedAudioSources [1].volumeLimit,
 				(m_Rigidbody.velocity.magnitude * m_Rigidbody.velocity.magnitude) / 750f,
 				Time.deltaTime * 5)
 			/ 1f) * SoundManager.instance.volumeMultiplayer;
-			SoundManager.instance.managedAudioSources [0].AudioSrc.pitch = Mathf.Clamp(0.1f + Mathf.Lerp(SoundManager.instance.managedAudioSources [0].AudioSrc.pitch,
+			SoundManager.instance.managedAudioSources [1].AudioSrc.pitch = Mathf.Clamp(0.1f + Mathf.Lerp(SoundManager.instance.managedAudioSources [1].AudioSrc.pitch,
 				(m_Rigidbody.velocity.magnitude * m_Rigidbody.velocity.magnitude) / 1250f,
 				Time.deltaTime * 5),0,2);
-			SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
+			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
 
 			ParticleSystem.EmissionModule em = speedLines.emission;
 		
 			em.rateOverDistance = (m_Rigidbody.velocity.sqrMagnitude - 200f) / 150f;
 		}
 		else {
-			SoundManager.instance.managedAudioSources [0].AudioSrc.volume = 0;			
+			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = 0;			
 		}
 		#endregion
 	}
@@ -384,7 +409,7 @@ public class PlayerCharacter : MonoBehaviour
 	void HandleAirborneMovement ()
 	{
 		//Allow strafing
-		float h = CrossPlatformInputManager.GetAxis("Horizontal");
+		float h = Input.GetAxis("Horizontal");
 
 		if (PerspectiveChanger.instance.GetWorldOrientation() > 130)
 			h *= -1;
@@ -430,7 +455,7 @@ public class PlayerCharacter : MonoBehaviour
 	{
 		// we implement this function to override the default root motion.
 		// this allows us to modify the positional speed before it's applied.
-		if (m_IsGrounded && Time.deltaTime > 0) {
+		if (m_IsGrounded && Time.deltaTime > 0 && !m_Crouching) {
 			Vector3 v = (m_Animator.deltaPosition * m_MoveSpeedMultiplier) / Time.deltaTime;
 
 			// we preserve the existing y part of the current velocity.
@@ -490,30 +515,37 @@ public class PlayerCharacter : MonoBehaviour
 
 	[SerializeField]
 	GameObject SpecialObject;
+	public float RollRotationoffset;
 
 	IEnumerator CrouchRoll (float speed, Vector3 position)
 	{
 		Vector3 startRot = rollRotationObject.localRotation.eulerAngles;
 		transform.position += Vector3.down * 0.1f;
 		m_Rigidbody.constraints = RigidbodyConstraints.FreezePositionY;
-
+		m_Crouching = true;
 		GetComponent<CapsuleCollider>().enabled = false;
 		//Make sure animator is in the crouching state
 
 		Vector3 forwardDir = SpecialObject.transform.forward;
+		RollRotationoffset = 0;
+
 		float lerpy = 0;
-		while (lerpy < 1) {
+		while (lerpy < 1) {			
 			m_Animator.SetBool("OnGround",true);
 			m_Animator.SetBool("Crouch",true);
 			lerpy += Time.deltaTime * 2;
-			rollRotationObject.RotateAround(waistline.transform.position,rollRotationObject.right,Time.deltaTime * 360 * 2);
+			//forwardDir = SpecialObject.transform.forward;
+			rollRotationObject.RotateAround(waistline.transform.position,SpecialObject.transform.right,Time.deltaTime * 360 * 2);
 			//Need to take gravity into account, as well as player input to slow down
 
 			//This needs to take player rotation into account.
 			//and this isn't the way of doing it.
-			transform.Translate(forwardDir * speed * Time.deltaTime,Space.World);
 
-			float h = CrossPlatformInputManager.GetAxis("Horizontal");
+			Quaternion q = Quaternion.Euler(0,RollRotationoffset,0);
+			Debug.Log(RollRotationoffset);
+			transform.Translate(q * (forwardDir * speed * Time.deltaTime),Space.World);
+
+			float h = Input.GetAxis("Horizontal");
 			#if UNITY_EDITOR
 			// helper to visualise the ground check ray in the scene view
 			if (Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,2.0f)) {
@@ -521,7 +553,7 @@ public class PlayerCharacter : MonoBehaviour
 			}
 			else {
 				Debug.DrawLine(transform.position + (Vector3.up * 0.5f),transform.position + (Vector3.up * 0.5f) + (Vector3.down * .5f),Color.blue,3f);
-				transform.Translate(Physics.gravity * Time.deltaTime,Space.World);
+				transform.Translate(Physics.gravity * Time.deltaTime * 2,Space.World);
 			}
 			#endif
 
@@ -536,7 +568,8 @@ public class PlayerCharacter : MonoBehaviour
 		//When rotated, set animator to standing and do a resume
 
 		//Need to make sure velocity is preserved during this time of crouching.
-		m_Animator.SetBool("Crouch",false);
+		m_Crouching = false;
+		m_Animator.SetBool("Crouch",m_Crouching);
 		RaycastHit _hitInfo;
 		m_Animator.SetBool("OnGround",Physics.Raycast(transform.position + (Vector3.up * 0.5f),Vector3.down,3.0f));
 
@@ -576,7 +609,7 @@ public class PlayerCharacter : MonoBehaviour
 		RaycastHit hitInfo;
 		#if UNITY_EDITOR
 		// helper to visualise the ground check ray in the scene view
-		Debug.DrawLine(transform.position + (Vector3.up * 0.1f),transform.position + (Vector3.up * 0.1f) + (Vector3.down * m_GroundCheckDistance),Color.red,5f);
+		Debug.DrawLine(transform.position + (Vector3.up * 0.1f),transform.position + (Vector3.up * 0.1f) + (Vector3.down * m_GroundCheckDistance),m_IsGrounded ? Color.green : Color.red,5f);
 		#endif
 		// 0.1f is a small offset to start the ray from inside the character
 		// it is also good to note that the transform position in the sample assets is at the base of the character
@@ -588,6 +621,9 @@ public class PlayerCharacter : MonoBehaviour
 			}
 			m_IsGrounded = true;
 			m_Animator.applyRootMotion = false;
+
+			Debug.DrawLine(hitInfo.point + (Vector3.left * 0.1f),hitInfo.point + (Vector3.right * 0.1f),m_IsGrounded ? Color.green : Color.red,5f);
+
 		}
 		else {
 			m_IsGrounded = false;
@@ -603,7 +639,6 @@ public class PlayerCharacter : MonoBehaviour
 			vibration -= Time.deltaTime;
 			GamePad.SetVibration(0,vibration,vibration);
 		}
-
 	}
 
 	public bool isGrounded ()
@@ -645,13 +680,12 @@ public class PlayerCharacter : MonoBehaviour
 
 		jumpTimer = 0;
 		bool upToSpeed = Mathf.Abs(m_Rigidbody.velocity.x) > minRollSpeed || Mathf.Abs(m_Rigidbody.velocity.z) > minRollSpeed;
-
-		if (Mathf.Abs(prevVertVel) > craterSpeed && transform.position.y > -15) {
+		if (Mathf.Abs(prevVertVel) > craterSpeed && transform.position.y > -25) {
 			//Make a cater effect
 			DoACrater(position);
 		}
 		else if (position.y < jumpStartPosition.y && upToSpeed) {
-				if (!rolling && !respawning && transform.position.y > -15) {
+				if (!rolling && !respawning && transform.position.y > -25) {
 					rolling = true;
 					StartCoroutine(CrouchRoll(movingOnXAxis() ? Mathf.Abs(m_Rigidbody.velocity.x) : Mathf.Abs(m_Rigidbody.velocity.z),position));
 				}
@@ -660,6 +694,7 @@ public class PlayerCharacter : MonoBehaviour
 				footDust [2].transform.position = transform.position + (Vector3.up * 0.2f);
 				footDust [2].Emit(15);
 			}
+
 
 		m_MoveSpeedMultiplier = 1 + ((m_MoveSpeedMultiplier - 1) / 2);
 		prevVertVel = 0;

@@ -30,8 +30,8 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		private void FixedUpdate ()
 		{
 			if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {			// read inputs
-				float h = CrossPlatformInputManager.GetAxis("Horizontal");
-				float v = CrossPlatformInputManager.GetAxis("Vertical");
+				float h = Input.GetAxis("Horizontal");
+				float v = Input.GetAxis("Vertical");
 				bool crouch = Input.GetKey(KeyCode.C);
 
 				// calculate move direction to pass to character

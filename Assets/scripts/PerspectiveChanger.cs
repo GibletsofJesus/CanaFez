@@ -28,7 +28,7 @@ public class PerspectiveChanger : MonoBehaviour
 		return CameraObject.transform.rotation.eulerAngles.y;
 	}
 
-	Vector3 prevVel, prevAngVel;
+	Vector3 prevVel;
 
 	public void RotatePerspective ()
 	{
@@ -52,7 +52,6 @@ public class PerspectiveChanger : MonoBehaviour
 				lerpSpeed *= 10;
 				findIdealPositionAndSet();
 				lerpSpeed /= 10;
-
 				checkFinishRotating(true);
 			}
 		}
@@ -71,6 +70,10 @@ public class PerspectiveChanger : MonoBehaviour
 					CameraObject.localRotation = Quaternion.Euler(new Vector3 (0, RoundToNearest90Degrees(CameraObject.localRotation.eulerAngles.y), 0));
 					PlayerCharacter.instance.UpdateMovementRestirctions(CameraObject.transform.localRotation.eulerAngles.y);
 					rotationAmount = 0;
+					OffsetAdjustment();
+					lerpSpeed *= 10;
+					findIdealPositionAndSet();
+					lerpSpeed /= 10;
 					checkFinishRotating(false);
 				}
 			}
@@ -78,14 +81,29 @@ public class PerspectiveChanger : MonoBehaviour
 
 	void checkFinishRotating (bool dir)
 	{
-		Time.timeScale = Input.GetKey(KeyCode.Joystick1Button4) || Input.GetKey(KeyCode.Joystick1Button5) ? 0 : 1;
+		if (PlayerCharacter.instance.respawning) {
+			Time.timeScale = 1;
+		}
+		else {
+			Time.timeScale = Input.GetAxisRaw("CamRotate") != 0 ? 0 : 1;
+		}
 
+		if (Input.GetAxisRaw("CamRotate") > 0)
+			Rotate(true);
+		if (Input.GetAxisRaw("CamRotate") < 0)
+			Rotate(false);
 		Quaternion q = Quaternion.AngleAxis(rotationToComplete,Vector3.up);
 
-		m_Rigidbody.velocity = q * prevVel;
+		if (Input.GetAxisRaw("CamRotate") == 0) {
 
-		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = SoundManager.instance.managedAudioSources [0].volumeLimit;
-		rotationToComplete = 0;
+			rotationToComplete = 0;
+			m_Rigidbody.velocity = q * prevVel;
+			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
+		}
+		else {
+			prevVel = q * prevVel;
+		}
+
 	}
 
 	bool forceRotation;
@@ -105,6 +123,7 @@ public class PerspectiveChanger : MonoBehaviour
 
 	[SerializeField]
 	Renderer transitionThing;
+	public bool skipIntro;
 
 	public IEnumerator MoveCam ()
 	{
@@ -120,14 +139,20 @@ public class PerspectiveChanger : MonoBehaviour
 		yield return new WaitForSeconds (2f);
 		while (WorldGen.instance.generating)
 			yield return null;
-
+		
 		_anim.playbackTime = 0;
 		PlayerCharacter.instance.transform.position = PlayerCharacter.instance.lastSpawner.transform.position + (Vector3.up * 3);
 
-		lerpSpeed = 2;
-		yield return new WaitForSeconds (1);
-		forceRotation = true;
-		yield return new WaitForSeconds (1);
+		if (skipIntro) {
+			lerpSpeed = 200;
+			yield return new WaitForSeconds (.1f);
+		}
+		else {
+			lerpSpeed = 2;
+			yield return new WaitForSeconds (1);
+			forceRotation = true;
+			yield return new WaitForSeconds (1);
+		}
 		GameStateManager.instance.ChangeState(GameStateManager.GameStates.STATE_GAMEPLAY);
 		lerpSpeed = 6;
 		GetComponent<Rigidbody>().isKinematic = false;
@@ -208,7 +233,7 @@ public class PerspectiveChanger : MonoBehaviour
 
 		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
 			//Still needs to be fixed a bit
-			float h = CrossPlatformInputManager.GetAxis("Horizontal");
+			float h = Input.GetAxis("Horizontal");
 			if (h != 0 && lerpSpeed < 10) {
 				minimapThing.dir = h > 0 ? true : false;
 				if (rotationAmount == 0)
@@ -245,7 +270,7 @@ public class PerspectiveChanger : MonoBehaviour
 
 			#region minimap
 
-			if (CrossPlatformInputManager.GetButtonDown("Minimap")) {
+			if (Input.GetButtonDown("Minimap")) {
 				bigMap = !bigMap;
 				if (bigMap)
 					PlayerCharacter.instance.Pause();
@@ -303,23 +328,29 @@ public class PerspectiveChanger : MonoBehaviour
 	//Rotation function used by the player
 	public void Rotate (bool dir)//false left, true right
 	{
-		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = 0;
-		pitchMod = wooshes [0].length / 0.3f; //Turning takes ~20 frames which @ 60fps = 1/3 of a second
-		SoundManager.instance.playSound(wooshes [0],1,pitchMod + Random.Range(-pitchMod / 10,pitchMod / 10));
-		if (clockwise)
-			dir = !dir;
+		if (!PlayerCharacter.instance.respawning) {
+			SoundManager.instance.managedAudioSources [1].AudioSrc.volume = 0;
+			pitchMod = wooshes [0].length / 0.3f; //Turning takes ~20 frames which @ 60fps = 1/3 of a second
+			SoundManager.instance.playSound(wooshes [0],1,pitchMod + Random.Range(-pitchMod / 10,pitchMod / 10));
+			if (clockwise)
+				dir = !dir;
 
-		//addOFf = CameraObject.position - (clampedPlayerPos() + adjustedOffset);
+			//addOFf = CameraObject.position - (clampedPlayerPos() + adjustedOffset);
 
-		rotationAmount = 90 * (dir ? 1 : -1);
-		minimapThing.SetRotation(rotationAmount);
+			rotationAmount = 90 * (dir ? 1 : -1);
+			minimapThing.SetRotation(rotationAmount);
 
-		rotationToComplete = rotationAmount;
-		//findIdealPositionAndSet();
-		//Equivelant of pausing this ting
-		prevVel = m_Rigidbody.velocity;
-		prevAngVel = m_Rigidbody.angularVelocity;
-		Time.timeScale = 0;
+			rotationToComplete = rotationAmount;
+			PlayerCharacter.instance.RollRotationoffset += rotationAmount;
+			//findIdealPositionAndSet();
+			//Equivelant of pausing this ting
+			if (Time.timeScale > 0) {
+		
+				Debug.Log("set prevel");
+				prevVel = m_Rigidbody.velocity;
+			}
+			Time.timeScale = 0;
+		}
 	}
 
 	//Rotation function used by meeee
@@ -339,10 +370,10 @@ public class PerspectiveChanger : MonoBehaviour
 
 	void ControllerInput ()
 	{
-		if (Input.GetKey(KeyCode.Joystick1Button5) && rotationAmount == 0) {
+		if (Input.GetAxis("CamRotate") > 0 && rotationAmount == 0) {
 			Rotate(true);
 		}
-		if (Input.GetKey(KeyCode.Joystick1Button4) && rotationAmount == 0) {
+		if (Input.GetAxis("CamRotate") < 0 && rotationAmount == 0) {
 			Rotate(false);
 		}
 	}

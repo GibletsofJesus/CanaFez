@@ -23,7 +23,6 @@ public class FractalTree : MonoBehaviour
 	{
 		oldCol = leafColour;
 		oldLeafScale = leafSize;
-		MakeTree();
 	}
 
 	public void MakeTree ()
@@ -52,7 +51,7 @@ public class FractalTree : MonoBehaviour
 		List<LineRenderer> NewBranches = new List<LineRenderer> ();
 		branches.Add(lr);
 
-		for (int iteration = 0; iteration < 3; iteration++) {
+		for (int iteration = 0; iteration < 1; iteration++) {
 			for (int p = 0; p < branches.Count; p++) {
 				for (int i = 0; i < 3; i++) {
 					//draw a linearooney
@@ -62,7 +61,10 @@ public class FractalTree : MonoBehaviour
 					l.startWidth = startingWidth / Mathf.Pow(2,iteration);
 					l.SetPositions(new Vector3[] { 
 						new Vector3 (0, 0, 0),
-						new Vector3 (Random.Range(1f,-1f) / Mathf.Pow(2f,iteration), Random.Range(1.25f,.75f) / Mathf.Pow(1.25f,iteration), Random.Range(1f,-1f) / Mathf.Pow(2f,iteration))
+						new Vector3 (
+							2 * Random.Range(1f,-1f) / Mathf.Pow(2f,iteration),
+							2 * Random.Range(1.25f,.75f) / Mathf.Pow(1.25f,iteration), 
+							2 * Random.Range(1f,-1f) / Mathf.Pow(2f,iteration))
 					});
 					NewBranches.Add(l);
 				}
@@ -73,14 +75,24 @@ public class FractalTree : MonoBehaviour
 			NewBranches.Clear();
 		}
 
+		LookAt lookAtPlayer = new LookAt ();
+		;
+
 		foreach (LineRenderer lr in branches) {
 			GameObject sprite = new GameObject ("Leaf");
 			sprite.AddComponent<SpriteRenderer>().sprite = leafSprite;
 			sprite.GetComponent<SpriteRenderer>().color = leafColour;
-			sprite.transform.localScale = Vector3.one * Random.Range(2.75f,3.25f);
+			sprite.transform.localScale = Vector3.one * leafSize;
 			sprite.transform.parent = lr.transform;
 			sprite.transform.localPosition = lr.GetPosition(1);
-			sprite.AddComponent<LookAt>().target = Camera.main.transform;
+			if (!lookAtPlayer) {
+				sprite.AddComponent<LookAt>().target = Camera.main.transform;
+				lookAtPlayer = sprite.GetComponent<LookAt>();
+			}
+			else {
+				sprite.AddComponent<LookAt>().target = lookAtPlayer.target;
+				//sprite.GetComponent<LookAt>().mimic = true;
+			}
 		}
 
 	}
@@ -97,34 +109,30 @@ public class FractalTree : MonoBehaviour
 	Color oldCol;
 	float oldLeafScale;
 
-	void Update ()
+	public void UpdateTree ()
 	{
-		if (lr) {			
-			if (lr.startWidth != startingWidth) {
+		if (lr) {
+			float herRatios = startingWidth / lr.startWidth;
 
-				float herRatios = startingWidth / lr.startWidth;
-
-				foreach (LineRenderer lr in GetComponentsInChildren<LineRenderer>()) {
-					lr.startWidth *= herRatios;
-				}
+			foreach (LineRenderer lr in GetComponentsInChildren<LineRenderer>()) {
+				lr.startWidth *= herRatios;
 			}
 		}
+		foreach (SpriteRenderer s in GetComponentsInChildren<SpriteRenderer>())
+			s.color = leafColour;
+		
+		foreach (SpriteRenderer s in GetComponentsInChildren<SpriteRenderer>())
+			s.transform.localScale = Vector3.one * leafSize;
+	}
 
-		if (leafColour != oldCol) {
-			foreach (SpriteRenderer s in GetComponentsInChildren<SpriteRenderer>())
-				s.color = leafColour;
-			oldCol = leafColour;
-		}
-		if (leafSize != oldLeafScale) {
-			foreach (SpriteRenderer s in GetComponentsInChildren<SpriteRenderer>())
-				s.transform.localScale = Vector3.one * leafSize;
-			oldCol = leafColour;
-		}
+	void Update ()
+	{
+		//UpdateTree();
 	}
 }
 
 #if UNITY_EDITOR
-[CustomEditor(typeof(FractalTree))]
+/*[CustomEditor(typeof(FractalTree))]
 public class FractualUI : Editor
 {
 	public override void OnInspectorGUI ()
@@ -135,5 +143,5 @@ public class FractualUI : Editor
 		if (GUILayout.Button("Make tree"))
 			rp.MakeTree();
 	}
-}
+}*/
 #endif

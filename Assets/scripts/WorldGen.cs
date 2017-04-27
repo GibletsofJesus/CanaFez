@@ -41,6 +41,7 @@ public class WorldGen : MonoBehaviour
 	[SerializeField]
 	List<Vector2> possiblePlacements = new List<Vector2> ();
 	private int resMultiplier = 1;
+	List<Animator> spawners = new List<Animator> ();
 
 	[Header("Roads")]
 	public bool generateRoads;
@@ -54,7 +55,9 @@ public class WorldGen : MonoBehaviour
 
 	[Header("Parks")]
 	[SerializeField]
-	GameObject[] parkPrefabs;
+	GameObject parkPrefab;
+	[SerializeField]
+	FractalTree treePrefab;
 
 	[Header("UI reference(s)")]
 	[SerializeField]
@@ -108,8 +111,13 @@ public class WorldGen : MonoBehaviour
 
 		#region parks
 		//Place me some parks bb
-		int parkX = Random.Range(3,8), parkY = Random.Range(3,6);
-		int startx = Random.Range(0,citySizeX - parkX - 1), starty = Random.Range(0,citySizeY - parkY - 1);
+		int parkX = Random.Range(3,8);
+		int parkY = Random.Range(3,6);
+		//% of city size border to leave
+		float edge = 0.2f;
+		int startx = (int)Random.Range(citySizeX * edge,(citySizeX * (1 - edge)) - parkX - 1);
+		int starty = (int)Random.Range(citySizeY * edge,(citySizeY * (1 - edge)) - parkY - 1);
+
 		for (int i = startx; i < startx + parkX; i++) {
 			for (int j = starty; j < starty + parkY; j++) {
 				availableSquares [i, j] = false;
@@ -121,19 +129,35 @@ public class WorldGen : MonoBehaviour
 			                    (startx + (((float)parkX - .25f) / 2f)) * (buildingChunkSize * 3f), 
 			                    -32.5f, 
 			                    -(starty + (((float)parkY - .25f) / 2f)) * (buildingChunkSize * 3f));
-		GameObject g = Instantiate(parkPrefabs [0],transform.position + _spawnPos,Quaternion.Euler(Vector3.zero),transform);
+		GameObject g = Instantiate(parkPrefab,transform.position + _spawnPos,Quaternion.Euler(Vector3.zero),transform);
 
 		_spawnPos = new Vector3 (startx * (buildingChunkSize * 3f), 
 			-33, 
 			-(starty * (buildingChunkSize * 3f)));
-
 		
 		g.name = "park norm + spawnpos";
 		//g.transform.position = transform.position + _spawnPos + OOFset;
 		g.transform.localScale = new Vector3 ((parkX - 0.25f) * buildingChunkSize * 1.5f, .5f, (parkY - .25f) * buildingChunkSize * 1.5f);
-		//Then fill that place with trees
 
+		g.GetComponent<Renderer>().material.mainTextureOffset = new Vector2 (Random.value, Random.value);
 
+		//Now fill that place with trees
+		float placeX = 0.05f, placeY = 0, density = 512;
+
+		while (placeX < .95f) {
+			placeY = Random.Range(.05f,.95f);
+			placeX += (1f / density) * Random.Range(0.25f,4);
+			FractalTree _newTree = (FractalTree)Instantiate(treePrefab,Vector3.zero,Quaternion.Euler(0,0,0),g.transform);
+			_newTree.transform.localScale = new Vector3 (
+				0.5f / g.transform.localScale.x,
+				0.5f / g.transform.localScale.y,
+				0.5f / g.transform.localScale.z
+			);
+			_newTree.transform.localPosition = new Vector3 (placeX - 0.5f, 0, placeY - 0.5f);
+			_newTree.startingWidth = 0.5f;
+			_newTree.leafSize = 1;
+			_newTree.MakeTree();
+		}
 		#endregion
 
 		#region place large buildings
@@ -186,6 +210,10 @@ public class WorldGen : MonoBehaviour
 			StartCoroutine(RoadPlacement());
 		foreach (Building b in buildings) {
 			//b.gameObject.SetActive(false);
+		}
+
+		if (!PlayerCharacter.instance.lastSpawner) {
+			PlayerCharacter.instance.lastSpawner = spawners [spawners.Count / 2];
 		}
 		generating = false;
 	}
@@ -261,7 +289,6 @@ public class WorldGen : MonoBehaviour
 			}
 		}*/
 	}
-
 
 	#region Building placement
 
@@ -381,8 +408,9 @@ public class WorldGen : MonoBehaviour
 		//See if this is outside a circle thing
 		float requiredDistance = buildingChunkSize * citySizeX * (1.5f + Random.Range(-0.2f,0.2f) - ((_sizeX * _sizeY) / 15));
 
-		if (Vector3.Distance(centre,_newBuilding.transform.position) > requiredDistance)
+		if (Vector3.Distance(centre,_newBuilding.transform.position) > requiredDistance) {
 			_newBuilding.gameObject.SetActive(false);
+		}
 		else {
 			#region Make sure we don't place a building here
 			for (int x = 0; x < _sizeX; x++) {
@@ -408,10 +436,9 @@ public class WorldGen : MonoBehaviour
 			}
 			#endregion
 
+			//Doing this to setup the upgrade zone animator to manager
+			_newBuilding.SetupSpawner(false);
 		}
-
-		//Doing this to setup the upgrade zone animator to manager
-		_newBuilding.SetupSpawner(false);
 
 		return _newBuilding;
 	}
@@ -434,34 +461,31 @@ public class WorldGen : MonoBehaviour
 	IEnumerator FillInAvailableSquares (Transform _parent)
 	{
 		Vector3 prevPos = Vector3.zero;
-		List<Animator> spawners = new List<Animator> ();
-
+		spawners.Clear();
 		//Generate a 10x10 grid of 1x1 buildings, not very interesting at all.
 		for (int y = 0; y < citySizeY; y++) {
 			for (int x = 0; x < citySizeX; x++) {
 				if (availableSquares [x, y]) {
 
 					Building b = PlaceBuilding(buildingPrefabs [0].buildingObject,1,1,x,y,0,_parent);
-					bool spawn = true;
+					if (b.gameObject.activeSelf) {
+						bool spawn = true;
 
-					foreach (Animator a in  spawners) {
-						if (Vector3.Distance(a.transform.position,b.transform.position) < 60) {
-							spawn = false;
-							break;
+						foreach (Animator a in  spawners) {
+							if (Vector3.Distance(a.transform.position,b.transform.position) < 60) {
+								spawn = false;
+								break;
+							}
 						}
-					}
-					if (spawn) {
-						spawners.Add(b.SetupSpawner(true));
-					}
-					else {
-						b.SetupSpawner(false);
+						if (spawn) {
+							spawners.Add(b.SetupSpawner(true));
+						}
+						else {
+							b.SetupSpawner(false);
+						}
 					}
 				}
 			}
-		}
-
-		if (!PlayerCharacter.instance.lastSpawner) {
-			PlayerCharacter.instance.lastSpawner = spawners [spawners.Count / 2];
 		}
 		yield return null;
 	}

@@ -11,15 +11,13 @@ public class EndGameUI : MonoBehaviour
 
 	//We're going to need a few references to say the least
 	[SerializeField]
-	Text Header, completionNum, cityText;
+	Text Header;
 	[SerializeField]
-	Text[] options;
+	Image background, Arrow, minimapThing;
 	[SerializeField]
-	GameObject[] boxes;
+	EnterHighscore highScores;
 	[SerializeField]
-	SpriteRenderer minimapThing;
-	[SerializeField]
-	Image background, Arrow;
+	GameObject mostOfTheUI, UIOptions;
 	[SerializeField]
 	Color[] backgroundLerpColours;
 	[SerializeField]
@@ -38,7 +36,7 @@ public class EndGameUI : MonoBehaviour
 		instance = this;
 	}
 
-	public IEnumerator test ()
+	public IEnumerator EndGame ()
 	{
 		float lerpy	= 0;
 		//Lerp in the background
@@ -57,7 +55,8 @@ public class EndGameUI : MonoBehaviour
 		Header.enabled = true;
 		yield return new WaitForSeconds (1);
 
-		boxes [2].SetActive(true);
+		//Enable a the rest of the UI, minus the retry + quit options
+		mostOfTheUI.SetActive(true);
 		SoundManager.instance.playSound(sounds [1]);
 
 		//scroll through game progress
@@ -65,24 +64,21 @@ public class EndGameUI : MonoBehaviour
 		foreach (Sprite s in  minimapCapture.instance.captures) {
 			minimapThing.sprite = s;
 			SoundManager.instance.playSound(sounds [1],1,1.25f);
+
+			//whilst this is happening, scroll up the final score thing
+			//Also move the XP bar along
+
 			yield return new WaitForSeconds (0.1f);
 		}
 
-		//short pause for dramatic effect
-		yield return new WaitForSeconds (2);
-		SoundManager.instance.playSound(sounds [0]);
-		//Reveal completeion %
-		boxes [1].SetActive(true);
-
-		completionNum.text = WorldGen.instance.GetCompletionRating() + "%";
-		cityText.text = "Of " + WorldGen.instance.GetCurrentCityName() + " explored";
 
 		//NEW HIGHSCORE! if it is
 		//Record that shit (but that's a job for another day)
+		yield return StartCoroutine(highScores.openWindows(true));
 
 		currentState = state.Ready;
-		boxes [0].SetActive(true);
-		Arrow.rectTransform.anchoredPosition = new Vector3 (-29, 10 - (index * 20), 0);
+		//Hand control over to the player
+		Arrow.rectTransform.anchoredPosition = new Vector3 (-3.25f, 2.25f - (index * 1.5f), 0);
 		minimapIndex = minimapCapture.instance.captures.Count - 1;
 	}
 
@@ -93,46 +89,31 @@ public class EndGameUI : MonoBehaviour
 	{
 		if (currentState == state.Ready) {
 			moveCD = moveCD > 0 ? moveCD - Time.deltaTime : 0;
-			float v = CrossPlatformInputManager.GetAxis("Vertical");
+			float v = Input.GetAxis("Vertical");
 			if (Mathf.Abs(v) > 0.15f && moveCD <= 0) {
-				/*index += v > 0 ? -1 : 1;
+				index += v > 0 ? -1 : 1;
 				if (index < 0)
-					index = options.Length - 1;
-				if (index > options.Length - 1)
-					index = 0;*/
-
-				index = index == 0 ? 1 : 0;
+					index = 3;
+				if (index > 3)
+					index = 0;
 
 				moveCD = 0.5f;
 				SoundManager.instance.playSound(sounds [1]);
-				Arrow.rectTransform.anchoredPosition = new Vector3 (-29, 10 - (index * 20), 0);
+				Arrow.rectTransform.anchoredPosition = new Vector3 (-29, 10 - (index * 1.5f), 0);
 			}
 
-
-			float h = CrossPlatformInputManager.GetAxis("Horizontal");
-			if (Mathf.Abs(h) > 0 && moveCD <= 0) {
-				if (h > 0) {
-					minimapIndex++;
-					if (minimapIndex > minimapCapture.instance.captures.Count - 1)
-						minimapIndex = minimapCapture.instance.captures.Count - 1;
-				}
-				else {
-					minimapIndex--;
-					if (minimapIndex < 0)
-						minimapIndex = 0;
-				}
-				SoundManager.instance.playSound(sounds [1],1,1.25f);
-				moveCD = 0.1f;
-				minimapThing.sprite = minimapCapture.instance.captures [minimapIndex];
-			}
-		
-
-			if (CrossPlatformInputManager.GetButtonDown("Jump")) {
+			if (Input.GetButtonDown("Jump")) {
 				switch (index) {
 					case 0:
 						SceneManager.LoadScene(1);
 						break;
 					case 1:
+						//Open colour palette menu
+						break;
+					case 2:
+						//Open leadboards
+						break;
+					case 3:
 						SceneManager.LoadScene(0);
 						break;
 				}

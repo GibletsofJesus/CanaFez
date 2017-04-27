@@ -1,3 +1,5 @@
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
 Shader "4ik0/FakeWater/Opaque"
 {
 	Properties
@@ -50,7 +52,7 @@ Shader "4ik0/FakeWater/Opaque"
 			v2f vert (appdata v)
 			{
 				v2f o;
-				o.vertex = mul(UNITY_MATRIX_MVP, v.vertex);
+				o.vertex = UnityObjectToClipPos(v.vertex);
 				o.uv = TRANSFORM_TEX(v.uv, _MainTex);
 				o.uv1 = v.uv;
 				UNITY_TRANSFER_FOG(o, o.vertex);

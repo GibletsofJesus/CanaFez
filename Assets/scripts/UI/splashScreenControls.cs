@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 
 public class splashScreenControls : MonoBehaviour
 {
-
+	public static splashScreenControls instance;
 	[SerializeField]
 	AudioClip[] blips;
 	[SerializeField]
@@ -34,11 +34,13 @@ public class splashScreenControls : MonoBehaviour
 	Image optionsBox, optionsArrow;
 	[SerializeField]
 	Text optionsText, paletteText;
+	[SerializeField]
+	CustomPaletteCreator CPC;
 	int optionsIndex;
 
 	MenuState state = MenuState.idle;
 
-	enum MenuState
+	public enum MenuState
 	{
 		idle,
 		start,
@@ -49,9 +51,14 @@ public class splashScreenControls : MonoBehaviour
 
 	Vector3 defaultPos;
 
-	// Use this for initialization
+	public void ChangeUIState (MenuState newState)
+	{
+		state = newState;
+	}
+
 	void Start ()
 	{
+		instance = this;
 		defaultPos = Camera.main.transform.position;
 	}
 
@@ -62,7 +69,23 @@ public class splashScreenControls : MonoBehaviour
 
 	void Update ()
 	{
-		//Melee type camera
+		if (!instance)
+			instance = this;
+
+		//Skip intro bits with button presses
+		AnimatorStateInfo info = _anim.GetCurrentAnimatorStateInfo(0);
+		if (info.IsName("splash")) {
+			if (Input.GetButtonDown("Jump")) {
+				float playbackTime = info.normalizedTime * info.length;
+				if (playbackTime < 2)
+					_anim.Play("splash",0,2f / info.length);
+				else if (playbackTime < 5.5f)
+						_anim.Play("splash",0,5.5f / info.length);
+					else if (playbackTime < 7.5f)
+							_anim.Play("splash",0,7.5f / info.length);
+			}
+		}
+		//Melee type camera manipulation
 		float v = Input.GetAxis("RSVertical");
 		float h = Input.GetAxis("RSHorizontal");
 
@@ -76,7 +99,7 @@ public class splashScreenControls : MonoBehaviour
 	{
 		switch (state) {
 			case MenuState.start:
-				if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Joystick1Button7)) {
+				if (Input.GetKeyDown(KeyCode.Escape) || Input.touchCount > 0 || Input.GetKeyDown(KeyCode.Joystick1Button7)) {
 					startPrompt.enabled = false;
 					startPrompt.GetComponent<SpriteRenderer>().enabled = false;
 					mainMenu [0].gameObject.SetActive(true);
@@ -88,7 +111,7 @@ public class splashScreenControls : MonoBehaviour
 				menuMoveCD = menuMoveCD > 0 ? menuMoveCD - Time.deltaTime : 0;
 
 				#region menu up/down
-				float v = CrossPlatformInputManager.GetAxis("Vertical");
+				float v = Input.GetAxis("Vertical");
 				if (Mathf.Abs(v) > 0 && menuMoveCD == 0) {
 
 					if (v > 0) {
@@ -109,7 +132,7 @@ public class splashScreenControls : MonoBehaviour
 				#endregion
 
 				#region selecting menu items
-				if (CrossPlatformInputManager.GetButton("Jump")) {
+				if (Input.GetButtonDown("Jump")) {
 					state = MenuState.idle;
 					switch (menuIndex) {
 						case 0:
@@ -143,7 +166,7 @@ public class splashScreenControls : MonoBehaviour
 
 				break;
 			case MenuState.leaderboards:
-				if (CrossPlatformInputManager.GetButton("Jump")) {
+				if (Input.GetButton("Jump")) {
 					state = MenuState.idle;
 					StartCoroutine(Leaderboard(false));
 					SoundManager.instance.playSound(blips [2],1,1);
@@ -154,7 +177,7 @@ public class splashScreenControls : MonoBehaviour
 				paletteCD = paletteCD > 0 ? paletteCD - Time.deltaTime : 0;
 
 				#region menu up/down
-				float _v = CrossPlatformInputManager.GetAxis("Vertical");
+				float _v = Input.GetAxis("Vertical");
 				if (Mathf.Abs(_v) > 0 && menuMoveCD == 0) {
 
 					if (_v > 0) {
@@ -179,14 +202,16 @@ public class splashScreenControls : MonoBehaviour
 				#endregion
 
 				#region selecting menu items
-				if (CrossPlatformInputManager.GetButton("Jump")) {
+				if (Input.GetButton("Jump")) {
 					switch (optionsIndex) {
 						case 2:
+							CPC.StartCoroutine(CPC.OpenCloseWindow(true));
+							state = MenuState.idle;
 							//swap colour palette
-							if (paletteCD == 0) {
+							/*if (paletteCD == 0) {
 								paletteCD = .5f;
 								PaletteSwapLookup.instance.SetPaletteIndex(-1,paletteText);
-							}
+							}*/
 							break;
 						case 3:
 							//Some popup option for wiping highscores
@@ -214,22 +239,6 @@ public class splashScreenControls : MonoBehaviour
 						else
 							SoundManager.instance.changeVolume(vol);
 					}
-					else if (optionsIndex == 2 && paletteCD == 0) {
-							if (h > 0) {
-								SoundManager.instance.playSound(blips [0],1,0.75f + Mathf.Clamp(timePushingH / 4,0,.5f) + Random.Range(-0.03f,0.03f));
-								timePushingH = prevH > 0 ? timePushingH + 0.25f : 0;
-								paletteCD = timePushingH > 1 ? 0.05f : 0.15f;
-								PaletteSwapLookup.instance.SetPaletteIndex(-1,paletteText);
-							}
-							else if (h < 0) {
-									SoundManager.instance.playSound(blips [0],1,0.75f + Mathf.Clamp(timePushingH / 4,0,0.5f) + Random.Range(-0.03f,0.03f));
-									timePushingH = prevH < 0 ? timePushingH + 0.25f : 0;
-									paletteCD = timePushingH > 1 ? 0.05f : 0.15f;
-									PaletteSwapLookup.instance.SetPaletteIndex(1,paletteText);
-								}
-								else
-									timePushingH = 0;
-						}
 				}
 				prevH = h;
 				#endregion
@@ -249,7 +258,7 @@ public class splashScreenControls : MonoBehaviour
 
 		float lerpy = 0;
 		while (lerpy < 1) {
-			lerpy += Time.deltaTime;
+			lerpy += Time.deltaTime * 1.5f;
 			optionsBox.rectTransform.sizeDelta = new Vector2 (
 				Mathf.Lerp(0,100,(open ? lerpy : 1 - lerpy) * 2),
 				Mathf.Lerp(4,93,((open ? lerpy : 1 - lerpy) * 2) - 1));
@@ -263,6 +272,8 @@ public class splashScreenControls : MonoBehaviour
 			optionsText.text = "";
 
 			for (int i = 0; i < fullString.Length; i++) {
+				optionsText.text += fullString [i];
+				i++;
 				optionsText.text += fullString [i];
 				yield return new WaitForEndOfFrame ();
 			}

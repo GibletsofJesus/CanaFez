@@ -38,10 +38,8 @@ public class UIScoreManager : MonoBehaviour
 		else {
 			newText = GameObject.Instantiate(prefab,transform);
 		}
-		Debug.Log("Spawn pos " + spawnPos);
 		newText.transform.localScale = Vector3.one / 66;
 		newText.transform.localPosition = new Vector3 (Mathf.Lerp(-16.25f,16.25f,spawnPos.x), Mathf.Lerp(-11.4f,11.4f,spawnPos.y), 0);
-		Debug.Log("new text pos" + newText.transform.localPosition);
 		ActiveTexts.Add(newText);
 		scoreText textData = newText.GetComponent<scoreText>();
 		textData.Setup(spawnPos,points);

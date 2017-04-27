@@ -1,4 +1,6 @@
-﻿// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
 
 //Algorithms and shaders based on code from this journal
 //http://cgg-journal.com/2008-2/06/index.html
@@ -49,7 +51,7 @@ float _Fill;
 wf_v2g wf_vert(appdata_base v)
 {
 	wf_v2g output; //This is our output
-	output.pos = mul(UNITY_MATRIX_MVP, v.vertex); //pos = (Current model * view * projection matrix) * vertex data
+	output.pos = UnityObjectToClipPos(v.vertex); //pos = (Current model * view * projection matrix) * vertex data
 	output.uv = TRANSFORM_TEX (v.texcoord, _MainTex);
 	output.worldPos = mul (unity_ObjectToWorld, v.vertex).xyz;
 	

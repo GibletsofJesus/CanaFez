@@ -8,7 +8,7 @@ public class GameOverState : GameState
 	{
 		//GameStateManager.instance.GameOverUI.SetActive(true);
 		GameStateManager.instance.GameplayUI.SetActive(false);
-		EndGameUI.instance.StartCoroutine(EndGameUI.instance.test());
+		EndGameUI.instance.StartCoroutine(EndGameUI.instance.EndGame());
 	}
 
 	public override void OnStateDeactivate ()

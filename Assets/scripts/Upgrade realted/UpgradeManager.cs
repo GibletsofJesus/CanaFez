@@ -144,7 +144,7 @@ public class UpgradeManager : MonoBehaviour
 		header.playbackTime = 1.5f;
 
 		//Fire button for selection
-		while (!CrossPlatformInputManager.GetButtonDown("Jump")) {
+		while (!Input.GetButtonDown("Jump")) {
 			yield return null;
 		}
 		allowInput = false;
@@ -171,7 +171,7 @@ public class UpgradeManager : MonoBehaviour
 		moveCD = moveCD > 0 ? moveCD - Time.deltaTime : 0;
 
 		//Left + right selection
-		float h = CrossPlatformInputManager.GetAxis("Horizontal");
+		float h = Input.GetAxis("Horizontal");
 
 		if (Mathf.Abs(h) > .3f) {
 			timePushing += Time.deltaTime;

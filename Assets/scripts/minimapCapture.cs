@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -15,11 +16,9 @@ public class minimapCapture : MonoBehaviour
 	Camera thisCamera;
 	[SerializeField]
 	GameObject[] thingsToDisable;
-	[SerializeField]
-	GameObject targetTextureAsQuad;
 	public List<Sprite> captures = new List<Sprite> ();
 	[SerializeField]
-	SpriteRenderer renderToMe;
+	Image renderToMe;
 
 	void Start ()
 	{
@@ -40,10 +39,10 @@ public class minimapCapture : MonoBehaviour
 
 		//targetTextureAsQuad.SetActive(true);
 		RenderTexture.active = thisCamera.targetTexture;
-		Texture2D tex = new Texture2D (240, 160, TextureFormat.RGB24, true, true);
+		Texture2D tex = new Texture2D (120, 80, TextureFormat.RGB24, true, true);
 		tex.filterMode = FilterMode.Point;
 		//thisCamera.Render();
-		tex.ReadPixels(new Rect (0, 0, 240, 160),0,0);
+		tex.ReadPixels(new Rect (0, 0, 120, 80),0,0);
 		tex.Apply();
 
 		//targetTextureAsQuad.SetActive(false);
@@ -51,7 +50,7 @@ public class minimapCapture : MonoBehaviour
 			g.SetActive(true);
 		}
 
-		captures.Add(Sprite.Create(tex,(new Rect (35, 0, 160, 160)),new Vector2 (0.5f, 0.5f)));
+		captures.Add(Sprite.Create(tex,(new Rect (20, 0, 80, 80)),new Vector2 (0.5f, 0.5f)));
 		renderToMe.sprite = captures [captures.Count - 1];
 	}
 }
