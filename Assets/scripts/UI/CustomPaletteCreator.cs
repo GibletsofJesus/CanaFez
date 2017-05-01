@@ -7,6 +7,7 @@ using UnityStandardAssets.CrossPlatformInput;
 
 public class CustomPaletteCreator : MonoBehaviour
 {
+	public static CustomPaletteCreator instance;
 	//Lines around the outside of UI elements to indicate selection
 	[SerializeField]
 	Image[] selectionIndicators;
@@ -25,6 +26,12 @@ public class CustomPaletteCreator : MonoBehaviour
 	[SerializeField]
 	int UiIndex = 0, pixelIndex;
 
+	[Header("New shit")]
+	[SerializeField]
+	GameObject theFuckYouBox;
+	[SerializeField]
+	Text theFuckYouBoxMessage;
+
 	//UI Index cheat sheet
 	//0. Hue
 	//1. Sat
@@ -41,6 +48,7 @@ public class CustomPaletteCreator : MonoBehaviour
 	// Use this for initialization
 	void Start ()
 	{
+		instance = this;
 		ActiveTexture = new Texture2D (4, 1, TextureFormat.RGB24, false);
 		ActiveTexture.filterMode = FilterMode.Point;
 	}
@@ -49,6 +57,16 @@ public class CustomPaletteCreator : MonoBehaviour
 
 	void Update ()
 	{
+		theFuckYouBox.SetActive(UnlockManager.instance.playerLevel < 10 ? true : false);
+		theFuckYouBoxMessage.text = "Unlock <color=grey>" + (10 - UnlockManager.instance.playerLevel) + "</color>" + '\n' +
+		"more colour" + '\n' +
+		"palettes to" + '\n' +
+		"access" + '\n' + '\n' +
+		"CUSTOM" + '\n' +
+		"PALETTE" + '\n' +
+		"MAKER";
+		if (!instance)
+			instance = this;
 		if (input)
 			HandleInput();
 	}
@@ -158,7 +176,7 @@ public class CustomPaletteCreator : MonoBehaviour
 					}
 					break;
 				case 5:
-					if (h > 0) {
+					if (h > 0 && UnlockManager.instance.playerLevel > 9) {
 						selectionIndicators [UiIndex].enabled = false;
 						moveCD = 0.25f;
 						SoundManager.instance.playSound(blips [0]);
@@ -230,7 +248,8 @@ public class CustomPaletteCreator : MonoBehaviour
 		//Play opening/closing sound
 		SoundManager.instance.playSound(blips [open ? 1 : 2]);
 		ChangeSaveButtonState();
-
+		if (open)
+			PaletteSwapLookup.instance.loadPalettes();
 		//Expand out the big box everything is stored in;
 		float lerpy = 0;
 		while (lerpy < 1) {
@@ -242,10 +261,12 @@ public class CustomPaletteCreator : MonoBehaviour
 		}
 
 		if (!open) {
-			splashScreenControls.instance.ChangeUIState(splashScreenControls.MenuState.options);
+			if (splashScreenControls.instance != null)
+				splashScreenControls.instance.ChangeUIState(splashScreenControls.MenuState.options);
+			else
+				EndGameUI.instance.currentState = EndGameUI.state.Ready;
 		}
 		else {
-
 			GetTextureSetSliders();
 			PaletteName.text = PlayerPrefs.GetInt("Palette") + ". " + PaletteSwapLookup.instance.LookupTexture [PlayerPrefs.GetInt("Palette")].name;
 			input = true;

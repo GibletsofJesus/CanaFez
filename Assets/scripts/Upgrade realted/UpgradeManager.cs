@@ -51,7 +51,7 @@ public class UpgradeManager : MonoBehaviour
 					break;
 				case upgradeType.lessGravity:
 					Vector3 grav = Physics.gravity;
-					grav.y /= 2;
+					grav.y *= 0.8f;
 					Physics.gravity = grav;
 					break;
 				case upgradeType.fasterStrafe:
@@ -120,7 +120,7 @@ public class UpgradeManager : MonoBehaviour
 					upgradeText [i].text = "+40 seconds to game timer";
 					break;
 				case upgradeType.lessGravity:
-					upgradeText [i].text = "-50% gravity";
+					upgradeText [i].text = "-20% gravity";
 					break;
 				case upgradeType.fasterRunning:
 					upgradeText [i].text = "+50% to max running speed";

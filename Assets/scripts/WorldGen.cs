@@ -516,7 +516,7 @@ public class WorldGen : MonoBehaviour
 		return output;
 	}
 
-	string sillyname;
+	public string sillyname;
 
 	public string GetCurrentCityName ()
 	{

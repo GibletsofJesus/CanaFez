@@ -78,13 +78,13 @@ public class FractalTree : MonoBehaviour
 		LookAt lookAtPlayer = new LookAt ();
 		;
 
-		foreach (LineRenderer lr in branches) {
+		foreach (LineRenderer branch in branches) {
 			GameObject sprite = new GameObject ("Leaf");
 			sprite.AddComponent<SpriteRenderer>().sprite = leafSprite;
 			sprite.GetComponent<SpriteRenderer>().color = leafColour;
 			sprite.transform.localScale = Vector3.one * leafSize;
-			sprite.transform.parent = lr.transform;
-			sprite.transform.localPosition = lr.GetPosition(1);
+			sprite.transform.parent = branch.transform;
+			sprite.transform.localPosition = branch.GetPosition(1);
 			if (!lookAtPlayer) {
 				sprite.AddComponent<LookAt>().target = Camera.main.transform;
 				lookAtPlayer = sprite.GetComponent<LookAt>();
@@ -114,8 +114,8 @@ public class FractalTree : MonoBehaviour
 		if (lr) {
 			float herRatios = startingWidth / lr.startWidth;
 
-			foreach (LineRenderer lr in GetComponentsInChildren<LineRenderer>()) {
-				lr.startWidth *= herRatios;
+			foreach (LineRenderer _lr in GetComponentsInChildren<LineRenderer>()) {
+				_lr.startWidth *= herRatios;
 			}
 		}
 		foreach (SpriteRenderer s in GetComponentsInChildren<SpriteRenderer>())

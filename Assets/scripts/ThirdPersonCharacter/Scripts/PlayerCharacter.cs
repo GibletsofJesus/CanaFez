@@ -542,7 +542,6 @@ public class PlayerCharacter : MonoBehaviour
 			//and this isn't the way of doing it.
 
 			Quaternion q = Quaternion.Euler(0,RollRotationoffset,0);
-			Debug.Log(RollRotationoffset);
 			transform.Translate(q * (forwardDir * speed * Time.deltaTime),Space.World);
 
 			float h = Input.GetAxis("Horizontal");

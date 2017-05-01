@@ -64,7 +64,7 @@ public class BuildingActions : MonoBehaviour
 				b.Trigger();
 			}
 			if (roofObjects.Length > 0) {
-				minimapCapture.instance.Capture();
+				minimapCapture.instance.Capture(pointsForLandingHere);
 				StartCoroutine(flashRoof());
 			}
 			minimapHighlight.SetActive(true);

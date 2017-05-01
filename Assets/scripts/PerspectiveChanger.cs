@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityStandardAssets.CrossPlatformInput;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PerspectiveChanger : MonoBehaviour
 {
@@ -261,7 +262,7 @@ public class PerspectiveChanger : MonoBehaviour
 			CameraObject.localRotation = snapRot();
 		}
 
-		if (GameStateManager.instance.GetState() != GameStateManager.GameStates.STATE_PAUSE) {
+		if (GameStateManager.instance.GetState() != GameStateManager.GameStates.STATE_PAUSE && GameStateManager.instance.GetState() != GameStateManager.GameStates.STATE_GAMEOVER) {
 			OffsetAdjustment();
 			findIdealPositionAndSet();
 		}
@@ -296,6 +297,8 @@ public class PerspectiveChanger : MonoBehaviour
 			minimapLerp += Time.deltaTime * (bigMap ? 5 : -5);
 
 			if (minimapLerp > 1) {
+				foreach (Text t in MinimimapCityName.GetComponentsInChildren<Text>())
+					t.text = WorldGen.instance.sillyname;
 				MinimimapCityName.SetActive(true);
 				minimapLerp = 1;
 			}
@@ -345,8 +348,6 @@ public class PerspectiveChanger : MonoBehaviour
 			//findIdealPositionAndSet();
 			//Equivelant of pausing this ting
 			if (Time.timeScale > 0) {
-		
-				Debug.Log("set prevel");
 				prevVel = m_Rigidbody.velocity;
 			}
 			Time.timeScale = 0;

@@ -302,6 +302,7 @@ public class splashScreenControls : MonoBehaviour
 				Mathf.Lerp(4,98,((open ? lerpy : 1 - lerpy) * 2) - 1));
 			yield return new WaitForEndOfFrame ();
 		}
+		EnterHighscore.instance.DisplayScores();
 		mainMenu [2].GetComponent<flash>().enabled = false;
 		mainMenu [2].enabled = true;
 		if (open) {
@@ -324,50 +325,6 @@ public class splashScreenControls : MonoBehaviour
 			LeaderboardNames.text = "";
 			LeaderboardRanks.text = "";
 
-			#region method A
-			/*for (int i = 0; i < 3; i++) {
-				
-				LeaderboardRanks.text = "";
-				foreach (string s in ranks) {
-					if (i < s.Length)
-						LeaderboardRanks.text += s.Substring(0,i) + '\n';
-					else
-						LeaderboardRanks.text += s + '\n';
-				}
-				yield return new WaitForEndOfFrame ();
-				yield return new WaitForEndOfFrame ();
-				yield return new WaitForEndOfFrame ();
-			}
-
-			for (int i = 0; i < 7; i++) {
-				
-				LeaderboardNames.text = "";
-				foreach (string s in names) {
-					if (i < s.Length)
-						LeaderboardNames.text += s.Substring(0,i) + '\n';
-					else
-						LeaderboardNames.text += s + '\n';
-				}
-
-				yield return new WaitForEndOfFrame ();
-				yield return new WaitForEndOfFrame ();
-				yield return new WaitForEndOfFrame ();
-			}
-
-			for (int i = 0; i < 10; i++) {
-				LeaderboardScores.text = "";
-				foreach (string s in scores) {
-					if (i < s.Length)
-						LeaderboardScores.text += s.Substring(0,i) + '\n';
-					else
-						LeaderboardScores.text += s + '\n';
-				}
-				yield return new WaitForEndOfFrame ();
-				yield return new WaitForEndOfFrame ();
-				yield return new WaitForEndOfFrame ();
-			}*/
-			#endregion
-
 			#region method B
 			for (int i = 0; i < _ranks.Length; i++) {
 				LeaderboardRanks.text += _ranks [i];
@@ -381,22 +338,6 @@ public class splashScreenControls : MonoBehaviour
 				LeaderboardScores.text += _scores [i];
 				yield return new WaitForEndOfFrame ();
 			}
-			#endregion
-
-			#region method C
-			//Same as method B, only do a line at a time
-			/*for (int i = 0; i < _ranks.Length; i++) {
-				LeaderboardRanks.text += _ranks [i];
-				yield return new WaitForEndOfFrame ();
-			}
-			for (int i = 0; i < _names.Length; i++) {
-				LeaderboardNames.text += _names [i];
-				yield return new WaitForEndOfFrame ();
-			}
-			for (int i = 0; i < _scores.Length; i++) {
-				LeaderboardScores.text += _scores [i];
-				yield return new WaitForEndOfFrame ();
-			}*/
 			#endregion
 		}
 		state = open ? MenuState.leaderboards : MenuState.main;

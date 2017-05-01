@@ -23,9 +23,12 @@ public class EndGameUI : MonoBehaviour
 	[SerializeField]
 	AudioClip[] sounds;
 
-	state currentState = state.NotReady;
+	[SerializeField]
+	Text finalScoreDisplay, finalScoreHighscoreFlash;
 
-	enum state
+	public state currentState = state.NotReady;
+
+	public enum state
 	{
 		NotReady,
 		Ready
@@ -41,6 +44,8 @@ public class EndGameUI : MonoBehaviour
 		float lerpy	= 0;
 		//Lerp in the background
 		PlayerCharacter.instance.Pause();
+		//Kill the jump charge sound
+		SoundManager.instance.managedAudioSources [0].AudioSrc.volume = 0;
 		while (lerpy < 1) {
 			lerpy += Time.deltaTime;
 			//Fade out ground ambience
@@ -61,32 +66,112 @@ public class EndGameUI : MonoBehaviour
 
 		//scroll through game progress
 		yield return new WaitForSeconds (0.5f);
-		foreach (Sprite s in  minimapCapture.instance.captures) {
-			minimapThing.sprite = s;
+		foreach (KeyValuePair<Sprite,int> s in  minimapCapture.instance.captures) {
+			minimapThing.sprite = s.Key;
 			SoundManager.instance.playSound(sounds [1],1,1.25f);
 
-			//whilst this is happening, scroll up the final score thing
 			//Also move the XP bar along
 
+			finalScoreDisplay.text = "";
+			UIScoreManager.instance.SpawnEndGameText(s.Value);
+
+			//if it's a HIIIGHSCORe
+			scoreToAdd += s.Value;
+			if (displayScore > int.Parse(EnterHighscore.instance.scores [9].Value) && !finalScoreHighscoreFlash.gameObject.activeSelf) {
+				SoundManager.instance.playSound(sounds [2]);
+				finalScoreHighscoreFlash.gameObject.SetActive(true);
+			}
 			yield return new WaitForSeconds (0.1f);
 		}
 
+		while (scoreToAdd > 0) {
+			if (UnlockManager.instance.experienceSlider.value == UnlockManager.instance.experienceSlider.maxValue && UnlockManager.instance.playerLevel < 10) {
+				//HOOOO BOY AN UNLOCK HAPPENING
+				//do things
+				yield return StartCoroutine(Unlock(false));
+				UnlockManager.instance.NextLevel();
+				if (UnlockManager.instance.playerLevel > 9) {
+					yield return StartCoroutine(Unlock(true));
+				}
+			}
+			yield return new WaitForEndOfFrame ();
+		}
 
-		//NEW HIGHSCORE! if it is
-		//Record that shit (but that's a job for another day)
-		yield return StartCoroutine(highScores.openWindows(true));
+		yield return new WaitForSeconds (2);
+
+		//Record high score
+		//If current points are higher than last position in leaderboard
+		if (UIScoreManager.instance.points > int.Parse(EnterHighscore.instance.scores [9].Value))
+			yield return StartCoroutine(highScores.openWindows(true));
+
+		finalScoreHighscoreFlash.gameObject.SetActive(false);
 
 		currentState = state.Ready;
 		//Hand control over to the player
-		Arrow.rectTransform.anchoredPosition = new Vector3 (-3.25f, 2.25f - (index * 1.5f), 0);
 		minimapIndex = minimapCapture.instance.captures.Count - 1;
+		UIOptions.SetActive(true);
+	}
+
+	[Header("Unlock popup refs")]
+	[SerializeField]
+	Text UnlockHeader, UnlockText;
+	[SerializeField]
+	RectTransform UnlockBox;
+
+	IEnumerator Unlock (bool special)
+	{
+		float lerpy = 0;
+		SoundManager.instance.playSound(sounds [3]);
+		while (lerpy < 1) {
+			lerpy += Time.deltaTime;
+			UnlockBox.sizeDelta = new Vector2 (
+				Mathf.Lerp(0,230,lerpy * 2),
+				Mathf.Lerp(4,52,(lerpy * 2) - 1));
+			yield return new WaitForEndOfFrame ();
+		}
+
+		UnlockHeader.gameObject.SetActive(true);
+		if (special)
+			foreach (Text t in  UnlockHeader.GetComponentsInChildren<Text>())
+				t.text = "CUSTOM PALETTE" + '\n' + "MAKER UNLOCKED!!";
+		else
+			UnlockText.text = UnlockManager.instance.LevelsToUnlock [UnlockManager.instance.playerLevel].name;
+		
+		while (!Input.GetButtonDown("Jump"))
+			yield return null;
+
+		lerpy = 0;
+		UnlockHeader.gameObject.SetActive(false);
+		UnlockText.text = "";
+		SoundManager.instance.playSound(sounds [4]);
+		while (lerpy < 1) {
+			lerpy += Time.deltaTime;
+			UnlockBox.sizeDelta = new Vector2 (
+				Mathf.Lerp(230,0,lerpy * 2),
+				Mathf.Lerp(52,4,((1 - lerpy) * 2) - 1));
+			yield return new WaitForEndOfFrame ();
+		}
+		
 	}
 
 	int index = 0, minimapIndex = 0;
 	float moveCD = 0;
+	int scoreToAdd = 0, displayScore = 0;
 
 	void Update ()
 	{
+		if (scoreToAdd > 75) {
+			displayScore += 75;
+			scoreToAdd -= 75;
+			UnlockManager.instance.playerXP += 75;
+		}
+		else if (scoreToAdd > 0) {
+				displayScore += scoreToAdd;
+				UnlockManager.instance.playerXP += scoreToAdd;
+				scoreToAdd = 0;
+			}
+		finalScoreDisplay.text = string.Format("{0:n0}",displayScore);
+
 		if (currentState == state.Ready) {
 			moveCD = moveCD > 0 ? moveCD - Time.deltaTime : 0;
 			float v = Input.GetAxis("Vertical");
@@ -97,9 +182,9 @@ public class EndGameUI : MonoBehaviour
 				if (index > 3)
 					index = 0;
 
-				moveCD = 0.5f;
+				moveCD = 0.25f;
 				SoundManager.instance.playSound(sounds [1]);
-				Arrow.rectTransform.anchoredPosition = new Vector3 (-29, 10 - (index * 1.5f), 0);
+				Arrow.rectTransform.anchoredPosition = new Vector3 (-3.25f, 2.25f - (index * 1.5f), 0);
 			}
 
 			if (Input.GetButtonDown("Jump")) {
@@ -109,9 +194,13 @@ public class EndGameUI : MonoBehaviour
 						break;
 					case 1:
 						//Open colour palette menu
+						currentState = state.NotReady;
+						StartCoroutine(CustomPaletteCreator.instance.OpenCloseWindow(true));
 						break;
 					case 2:
 						//Open leadboards
+						currentState = state.NotReady;
+						StartCoroutine(EnterHighscore.instance.openWindows(false));
 						break;
 					case 3:
 						SceneManager.LoadScene(0);

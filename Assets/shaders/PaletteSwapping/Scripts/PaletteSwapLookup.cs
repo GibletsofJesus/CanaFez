@@ -16,18 +16,31 @@ public class PaletteSwapLookup : MonoBehaviour
 	[SerializeField]
 	Shader swappingShader;
 
+	bool loaded;
+
 	void OnEnable ()
 	{
-		LookupTexture = new List<Texture2D> ();
-		GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/");
-		GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/New batch");
-		GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/Custom");
-		GetStylesFromDirectory("ERROR PLEASE");
+		if (UnlockManager.instance)
+			loadPalettes();
 		instance = this;
-		if (PlayerPrefs.HasKey("Palette"))
+		if (PlayerPrefs.HasKey("Palette")) {
 			paletteIndex = PlayerPrefs.GetInt("Palette");
+			if (paletteIndex > LookupTexture.Count - 1)
+				paletteIndex = LookupTexture.Count - 1;
+		}
 		if (_mat == null)
 			_mat = new Material (swappingShader);
+	}
+
+	public void loadPalettes ()
+	{
+		if (UnlockManager.instance.playerLevel > 9) {	
+			LookupTexture = new List<Texture2D> ();
+			GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/");
+			GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/New batch");
+			GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/Custom");
+			GetStylesFromDirectory("ERROR PLEASE");
+		}
 	}
 
 	void GetStylesFromDirectory (string extraPath)
@@ -51,11 +64,14 @@ public class PaletteSwapLookup : MonoBehaviour
 	public void SetPaletteIndex (int upDown, Text textComp)
 	{
 		paletteIndex -= upDown;
-		if (paletteIndex > LookupTexture.Count - 1)
+
+		int max = UnlockManager.instance.playerLevel > 9 ? LookupTexture.Count - 1 : UnlockManager.instance.playerLevel;
+
+		if (paletteIndex > max)
 			paletteIndex = 0;
 
 		if (paletteIndex < 0)
-			paletteIndex = LookupTexture.Count - 1;
+			paletteIndex = max;
 
 		PlayerPrefs.SetInt("Palette",paletteIndex);
 		if (textComp)

@@ -16,7 +16,8 @@ public class minimapCapture : MonoBehaviour
 	Camera thisCamera;
 	[SerializeField]
 	GameObject[] thingsToDisable;
-	public List<Sprite> captures = new List<Sprite> ();
+	[SerializeField]
+	public List<KeyValuePair<Sprite, int>> captures = new List<KeyValuePair<Sprite, int>> ();
 	[SerializeField]
 	Image renderToMe;
 
@@ -31,7 +32,7 @@ public class minimapCapture : MonoBehaviour
 			instance = this;
 	}
 
-	public void Capture ()
+	public void Capture (int points)
 	{
 		foreach (GameObject g in thingsToDisable) {
 			g.SetActive(false);
@@ -50,8 +51,12 @@ public class minimapCapture : MonoBehaviour
 			g.SetActive(true);
 		}
 
-		captures.Add(Sprite.Create(tex,(new Rect (20, 0, 80, 80)),new Vector2 (0.5f, 0.5f)));
-		renderToMe.sprite = captures [captures.Count - 1];
+		KeyValuePair<Sprite,int> newVal = new KeyValuePair<Sprite, int> (
+			                                  Sprite.Create(tex,(new Rect (20, 0, 80, 80)),new Vector2 (0.5f, 0.5f)),
+			                                  points
+		                                  );
+		captures.Add(newVal);
+		renderToMe.sprite = captures [captures.Count - 1].Key;
 	}
 }
 
@@ -66,7 +71,7 @@ public class capturererer : Editor
 
 		minimapCapture mc = (minimapCapture)target;
 		if (GUILayout.Button("Capture"))
-			mc.Capture();
+			mc.Capture(10);
 	}
 }
 #endif
