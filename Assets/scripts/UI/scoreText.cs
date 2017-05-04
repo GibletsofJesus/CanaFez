@@ -12,12 +12,35 @@ public class scoreText : MonoBehaviour
 	string s;
 	int displayPoints, points;
 
-	public void Setup (Vector3 startPos, int _points)
+	textType m_type;
+
+	public enum textType
 	{
+		points,
+		checkpoint,
+		death
+	}
+
+	public void Setup (int _points)
+	{
+		m_type = textType.points;
 		flashing = false;
 		displayPoints = 0;
 		points = _points;
 		s = "+" + displayPoints;
+		foreach (TextMesh t in TextElements) {
+			t.text = s;
+		}
+		//transform.localPosition = startPos;
+	}
+
+	public void Setup (textType type)
+	{
+		m_type = type;
+		flashing = false;
+		displayPoints = 0;
+		points = -1;
+		s = type == textType.checkpoint ? "CHECKPOINT!" : "-15s";
 		foreach (TextMesh t in TextElements) {
 			t.text = s;
 		}
@@ -62,28 +85,39 @@ public class scoreText : MonoBehaviour
 
 	void Update ()
 	{
-		if (displayPoints < points) {
-			if (points - displayPoints > 1) {
-				displayPoints += 2;
-				UIScoreManager.instance.points += 2;
+		if (m_type == textType.points) {
+			if (displayPoints < points) {
+				if (points - displayPoints > 1) {
+					displayPoints += 2;
+					UIScoreManager.instance.points += 2;
+				}
+				else {
+					displayPoints++;
+					UIScoreManager.instance.points++;
+				}
+				s = "+" + displayPoints;
+				foreach (TextMesh t in TextElements) {
+					t.text = s;
+				}
 			}
-			else {
-				displayPoints++;
-				UIScoreManager.instance.points++;
+		}
+
+		if (m_type != textType.death) {
+			if (transform.localPosition.y < (m_type == textType.points ? 5f : 6.5f) && !flashing) {
+				transform.localPosition = new Vector3 (transform.localPosition.x, transform.localPosition.y + Time.deltaTime * moveSpeed, 0);
 			}
-			s = "+" + displayPoints;
-			foreach (TextMesh t in TextElements) {
-				t.text = s;
+			else if (!flashing) {
+					StartCoroutine(endFlash());
+				}
+		}
+		else {
+			if (transform.localPosition.y > 7 && !flashing) {
+				transform.localPosition = new Vector3 (transform.localPosition.x, transform.localPosition.y - Time.deltaTime * moveSpeed * .25f, 0);
 			}
+			else if (!flashing) {
+					StartCoroutine(endFlash());
+				}
 		}
 		transform.localRotation = Quaternion.Euler(Vector3.zero);
-
-		//Round y pos to mulitples of 1.2
-		if (transform.localPosition.y < 5 && !flashing) {
-			transform.localPosition = new Vector3 (transform.localPosition.x, transform.localPosition.y + Time.deltaTime * moveSpeed, 0);
-		}
-		else if (!flashing) {
-				StartCoroutine(endFlash());
-			}
 	}
 }

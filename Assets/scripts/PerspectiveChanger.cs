@@ -267,16 +267,20 @@ public class PerspectiveChanger : MonoBehaviour
 			findIdealPositionAndSet();
 		}
 		
-		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
+		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY || GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_SPLASH) {
 
 			#region minimap
 
 			if (Input.GetButtonDown("Minimap")) {
 				bigMap = !bigMap;
-				if (bigMap)
+				if (bigMap) {
+					GameStateManager.instance.ChangeState(GameStateManager.GameStates.STATE_SPLASH);
 					PlayerCharacter.instance.Pause();
-				else
+				}
+				else {
+					GameStateManager.instance.ChangeState(GameStateManager.GameStates.STATE_GAMEPLAY);
 					PlayerCharacter.instance.UnPause();
+				}
 			}
 
 			if (bigMap) {

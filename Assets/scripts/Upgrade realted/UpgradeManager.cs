@@ -100,7 +100,7 @@ public class UpgradeManager : MonoBehaviour
 		allowInput = true;
 		//Number of upgrades to choose from the available pool
 		options = new Upgrade[availableUpgrades.Count > optionAnimators.Length - 1 ? optionAnimators.Length : availableUpgrades.Count];
-		pointer.rectTransform.anchoredPosition = new Vector2 ((40 * selectionIndex) - (((options.Length - 1) * 40) / 2), 12);
+		pointer.rectTransform.anchoredPosition = new Vector2 (40 - ((options.Length - 1) * 40) / 2, 12);
 
 		for (int i = 0; i < options.Length; i++) {
 			optionAnimators [i].GetComponent<RectTransform>().anchoredPosition =

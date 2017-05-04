@@ -18,7 +18,7 @@ public class BuildingActions : MonoBehaviour
 	[SerializeField]
 	Texture2D[] textures;
 	[SerializeField]
-	AudioClip flashSound;
+	AudioClip flashSound, spawnerSound;
 	[SerializeField]
 	flash Antenna;
 	[SerializeField]
@@ -26,48 +26,63 @@ public class BuildingActions : MonoBehaviour
 
 	public void Trigger ()
 	{
+		StartCoroutine(landingEffect());
 		triggered = true;
-		if (roofObjects.Length > 0)
-			StartCoroutine(flashRoof());
 	}
 
-	IEnumerator flashRoof ()
+	IEnumerator landingEffect ()
 	{
-		while (!PlayerCharacter.instance.isGrounded())
-			yield return null;
+		if (roofObjects.Length > 0) {
+			while (!PlayerCharacter.instance.isGrounded())
+				yield return null;
 
-		if (flashSound) {
-			SoundManager.instance.playSound(flashSound,1,Random.Range(.85f,1.15f));
-			UIScoreManager.instance.SpawnText(Camera.main.WorldToViewportPoint(PlayerCharacter.instance.transform.position),pointsForLandingHere);
-		}
+			if (!PlayerCharacter.instance.respawning) {
+				if (associatedBuilding) {
+					if (associatedBuilding.spawner.gameObject.activeSelf) {
+						if (PlayerCharacter.instance.lastSpawner != associatedBuilding.spawner || GameTimer.instance.timeElapsed < 3) {
+							Antenna.GetComponentInChildren<Animator>().enabled = true;
+							Antenna.GetComponentInChildren<Animator>().Play("pointer_ZOOP");
+							StartCoroutine(SetSpawner());
+						}
+					}
+					else
+						spawnerSound = null;
+				}
 
-		for (int i = 0; i < 2; i++) {
-			foreach (Renderer r in roofObjects)
-				r.material.mainTexture = textures [1];
-			yield return new WaitForSeconds (0.05f);
-			foreach (Renderer r in roofObjects)
-				r.material.mainTexture = textures [0];
-			yield return new WaitForSeconds (0.05f);
+				if (GameTimer.instance.timeElapsed > 3)
+					minimapCapture.instance.Capture(PlayerCharacter.instance.GetPointsForDistance());
+				minimapHighlight.SetActive(true);
+
+				if (flashSound) {
+					if (GameTimer.instance.timeElapsed > 3) {
+						UIScoreManager.instance.SpawnText(Camera.main.WorldToViewportPoint(PlayerCharacter.instance.transform.position),PlayerCharacter.instance.GetPointsForDistance());
+						//make pitch dendant on score
+						SoundManager.instance.playSound(flashSound,spawnerSound ? 0 : 1,Mathf.Lerp(0.75f,3f,(float)(PlayerCharacter.instance.GetPointsForDistance() - 100) / 420f));
+					}
+					else {
+						SoundManager.instance.playSound(flashSound,spawnerSound ? 0 : 1,Random.Range(.85f,1.15f));
+					}
+				}
+
+				for (int i = 0; i < 2; i++) {
+					foreach (Renderer r in roofObjects)
+						r.material.mainTexture = textures [1];
+					yield return new WaitForSeconds (0.05f);
+					foreach (Renderer r in roofObjects)
+						r.material.mainTexture = textures [0];
+					yield return new WaitForSeconds (0.05f);
+				}
+			}
 		}
 	}
 
 	void OnTriggerEnter (Collider col)
 	{
-		if (associatedBuilding) {
-			if (associatedBuilding.spawner.gameObject.activeSelf) {
-				if (PlayerCharacter.instance.lastSpawner != associatedBuilding.spawner || GameTimer.instance.timeElapsed < 3)
-					StartCoroutine(SetSpawner(triggered));
-			}
-		}
 		if (!triggered) {
 			foreach (BuildingActions b in associatedTriggers) {
 				b.Trigger();
 			}
-			if (roofObjects.Length > 0) {
-				minimapCapture.instance.Capture(pointsForLandingHere);
-				StartCoroutine(flashRoof());
-			}
-			minimapHighlight.SetActive(true);
+			StartCoroutine(landingEffect());
 			triggered = true;
 		}
 	}
@@ -80,14 +95,15 @@ public class BuildingActions : MonoBehaviour
 		}
 	}
 
-	IEnumerator SetSpawner (bool b)
+	IEnumerator SetSpawner ()
 	{
 		if (activeSpawner)
 			activeSpawner.DeselectSpawner();
 		Antenna.enabled = true;
 
-		if (b)
-			SoundManager.instance.playSound(flashSound,1,Random.Range(.85f,1.15f));			
+		UIScoreManager.instance.SpawnText(Camera.main.WorldToViewportPoint(Antenna.transform.position),scoreText.textType.checkpoint);
+
+		SoundManager.instance.playSound(spawnerSound,1,Random.Range(.85f,1.15f));			
 		
 		yield return	new WaitForSeconds (0.75f);
 		Antenna.enabled = false;

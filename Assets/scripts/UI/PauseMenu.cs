@@ -41,6 +41,10 @@ public class PauseMenu : MonoBehaviour
 
 		menuIndex = 0;
 		arrow.rectTransform.anchoredPosition = new Vector2 (6, -10);
+		popupUIElements [0].SetActive(false);
+		popupUIElements [1].SetActive(false);
+		popups [0].sizeDelta = Vector2.zero;
+		popups [1].sizeDelta = Vector2.zero;
 	}
 
 	void Update ()
@@ -76,6 +80,7 @@ public class PauseMenu : MonoBehaviour
 					if (Input.GetButtonDown("Jump")) {
 						switch (menuIndex) {
 							case 0:
+								Time.timeScale = 1;
 								SceneManager.LoadScene(1);
 								break;
 							case 1:
@@ -143,8 +148,7 @@ public class PauseMenu : MonoBehaviour
 					break;
 				case pauseMenu.sound:
 					float _h = Input.GetAxis("Horizontal");
-					if (Mathf.Abs(_h) > 0.4f) {
-						
+					if (Mathf.Abs(_h) > 0) {						
 						float vol = SoundManager.instance.volumeMultiplayer;
 						vol += _h * Time.unscaledDeltaTime / 2;
 						vol = Mathf.Clamp01(vol);

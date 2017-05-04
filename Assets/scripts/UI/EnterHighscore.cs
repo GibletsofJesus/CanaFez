@@ -47,9 +47,6 @@ public class EnterHighscore : MonoBehaviour
 		#region type out all the highscore info
 		char[] spliiterChar = { '\r', '\n' };
 
-		UIranks.enabled = true;
-		UIscores.enabled = true;
-		UInames.enabled = true;
 		//Do some mad shit with typing things out
 		string[] ranks = UIranks.text.Split(spliiterChar,10);
 		string[] names = UInames.text.Split(spliiterChar,10);
@@ -111,9 +108,9 @@ public class EnterHighscore : MonoBehaviour
 		EnterNameGO.SetActive(false);
 		
 		//Disable everything
-		UIranks.enabled = false;
-		UIscores.enabled = false;
-		UInames.enabled = false;
+		UIranks.text = "";
+		UIscores.text = "";
+		UInames.text = "";
 
 		//Close window sound
 		SoundManager.instance.playSound(blips [1]);
@@ -132,8 +129,6 @@ public class EnterHighscore : MonoBehaviour
 
 	IEnumerator GetName ()
 	{
-		//So in here, find where the player score fits into the leaderboard, and flash that line across all text objects
-
 		Image[] arrows = arrowParent.GetComponentsInChildren<Image>();
 
 		string scoreName = "";
@@ -195,16 +190,19 @@ public class EnterHighscore : MonoBehaviour
 			#endregion
 			else if (Mathf.Abs(h) > 0.4f && sideCD <= 0) {
 					#region horizontal
-					if (h > 0 && charIndex < nameInput.Length - 1) {
-						nameInput [charIndex].color = Color.grey;							
-						sideCD = .25f;
-						charIndex++;
+					if (inputString != "a" && inputString != "A" || inputString != "D" || inputString != "d") {
+						if (!Input.GetKey(KeyCode.A) && !Input.GetKey(KeyCode.D)) {					
+							if (h > 0 && charIndex < nameInput.Length - 1) {
+								nameInput [charIndex].color = Color.grey;
+								charIndex++;
+							}
+							if (h < 0 && charIndex > 0) {
+								nameInput [charIndex].color = Color.grey;
+								charIndex--;
+							}
+						}
 					}
-					if (h < 0 && charIndex > 0) {
-						nameInput [charIndex].color = Color.grey;
-						sideCD = .25f;
-						charIndex--;
-					}
+					sideCD = .25f;
 					#endregion
 				}
 				else {

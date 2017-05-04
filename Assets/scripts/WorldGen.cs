@@ -30,6 +30,8 @@ public class WorldGen : MonoBehaviour
 	[SerializeField]
 	buildingPrefab[] buildingPrefabs;
 	[SerializeField]
+	buildingPrefab upgradeBuilding;
+	[SerializeField]
 	int citySizeX, citySizeY;
 	[SerializeField]
 	Transform worldObjects;
@@ -160,6 +162,11 @@ public class WorldGen : MonoBehaviour
 		}
 		#endregion
 
+		#region place upgrade buildings
+		yield return StartCoroutine(placeUpgradeBuildings());
+		
+		#endregion
+
 		#region place large buildings
 		for (int i = 0; i < density; i++) {
 			//Which building to place
@@ -216,6 +223,64 @@ public class WorldGen : MonoBehaviour
 			PlayerCharacter.instance.lastSpawner = spawners [spawners.Count / 2];
 		}
 		generating = false;
+	}
+
+	IEnumerator placeUpgradeBuildings ()
+	{
+		float runTime = 0;
+
+		List<Vector3> currentUpgradeBuildingPositions = new List<Vector3> ();
+		int maxUpgradeBuildings = 5;
+		List<KeyValuePair<int,int>> nope = new List<KeyValuePair<int, int>> ();
+		while (currentUpgradeBuildingPositions.Count < maxUpgradeBuildings && runTime < 15) {
+
+			int _startX = Random.Range(3,citySizeX - 5);
+			int _startY = Random.Range(3,citySizeY - 5);
+			bool giveUp = false;
+
+			//Have we tried this before, in which case don't bother doing vector comparisons and a bunch of maths
+			foreach (KeyValuePair<int,int> n in nope) {
+				if (_startX == n.Key && _startY == n.Value) {
+					Debug.Log("gave up");
+					giveUp = true;
+					break;
+				}
+			}
+
+			for (int i = _startX; i < _startX + 2; i++) {
+				for (int j = _startY; j < _startY + 2; j++) {
+					if (availableSquares [i, j] == false)
+						giveUp = true;
+				}
+			}
+
+			if (!giveUp) {
+				Vector3 spawnPos = new Vector3 ((_startX * (buildingChunkSize * 3)) + (buildingChunkSize / 2), 
+					                   0, 
+					                   (-_startY * (buildingChunkSize * 3)) - (buildingChunkSize / 2));
+
+				spawnPos += transform.position;
+				bool placeMe = true;
+				foreach (Vector3 v in  currentUpgradeBuildingPositions) {
+					if (Vector3.Distance(spawnPos,v) < 140) {
+						placeMe = false;
+						nope.Add(new KeyValuePair<int, int> (_startX, _startY));
+					}
+				}
+				if (placeMe) {
+					currentUpgradeBuildingPositions.Add(spawnPos);
+					//Place building
+					yield return PlaceBuilding(upgradeBuilding.buildingObject,
+						upgradeBuilding.sizeX,
+						upgradeBuilding.sizeY,
+						_startX,
+						_startY,
+						0,transform);
+				}
+			}
+			runTime += Time.deltaTime;
+			yield return new WaitForEndOfFrame ();
+		}
 	}
 
 	IEnumerator RoadPlacement ()
@@ -339,7 +404,6 @@ public class WorldGen : MonoBehaviour
 
 
 		_spawnPos += transform.position;
-		Vector3 offset = Vector3.zero;//Offset needed when rotating buildings so the end up in the same position as previously
 		#endregion
 
 		Building _newBuilding = (Building)Instantiate(prefab,_spawnPos,Quaternion.Euler(Vector3.up * 90 * rot),_parent);

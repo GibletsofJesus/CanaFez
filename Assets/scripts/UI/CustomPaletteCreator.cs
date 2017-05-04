@@ -54,6 +54,7 @@ public class CustomPaletteCreator : MonoBehaviour
 	}
 
 	float moveCD;
+	string inputString;
 
 	void Update ()
 	{
@@ -69,6 +70,15 @@ public class CustomPaletteCreator : MonoBehaviour
 			instance = this;
 		if (input)
 			HandleInput();
+		
+		if (Input.inputString.Length == 1) {
+			if (char.IsLetterOrDigit(Input.inputString [0]) && Input.inputString != inputString)
+				inputString = Input.inputString;
+			else
+				inputString = "#";
+		}
+		else
+			inputString = "#";
 	}
 
 	void HandleInput ()
@@ -86,15 +96,9 @@ public class CustomPaletteCreator : MonoBehaviour
 			//Depending on what UI element we have selected
 			switch (UiIndex) {
 				case 4:
-					//The save button
-					if (saveLock.enabled) {
-						File.WriteAllBytes(Application.dataPath + "/shaders/PaletteSwapping/PaletteTextures/styles/Custom/newTex_" + PaletteSwapLookup.instance.LookupTexture.Count + ".png",ActiveTexture.EncodeToPNG());
-						//Don't do shit
-					}
-					else {
-						File.WriteAllBytes(Application.dataPath + "/shaders/PaletteSwapping/PaletteTextures/styles/Custom/newTex_" + PaletteSwapLookup.instance.LookupTexture.Count + ".png",ActiveTexture.EncodeToPNG());
-						//save
-					}
+
+					input = false;
+					StartCoroutine(SavePalette());
 					break;					
 				case 5:					
 					//Use this palette and return to the options menu
@@ -127,12 +131,12 @@ public class CustomPaletteCreator : MonoBehaviour
 				else if (UiIndex == 4)
 						selectionIndicators [UiIndex].color = Color.grey;
 
-				ChangeSaveButtonState();
+				//ChangeSaveButtonState();
 			}
 			else if (moveCD <= 0) {
 					SoundManager.instance.playSound(blips [0]);
 					moveCD = 0.25f;
-					PaletteSwapLookup.instance.SetPaletteIndex(v > 0 ? 1 : -1,PaletteName);
+					PaletteSwapLookup.instance.SetPaletteIndex(v < 0 ? 1 : -1,PaletteName);
 					GetTextureSetSliders();
 				}
 		}
@@ -214,8 +218,12 @@ public class CustomPaletteCreator : MonoBehaviour
 
 	void GetTextureSetSliders ()
 	{
-		ActiveTexture.SetPixels(PaletteSwapLookup.instance.LookupTexture [PlayerPrefs.GetInt("Palette")].GetPixels());
-
+		if (!PlayerPrefs.HasKey("Palette"))
+			ActiveTexture.SetPixels(PaletteSwapLookup.instance.LookupTexture [0].GetPixels());
+		else {
+			Debug.Log(PlayerPrefs.GetInt("Palette"));
+			ActiveTexture.SetPixels(PaletteSwapLookup.instance.LookupTexture [PlayerPrefs.GetInt("Palette")].GetPixels());
+		}
 		float hue, sat, val;
 		//Setup the sliders
 		Color.RGBToHSV(ActiveTexture.GetPixel(pixelIndex,0),out hue,out sat,out val);
@@ -225,6 +233,195 @@ public class CustomPaletteCreator : MonoBehaviour
 	}
 
 	bool input;
+	[SerializeField]
+	RectTransform SaveBox, arrowParent;
+	[SerializeField]
+	Image charArrowA, charArrowB;
+	[SerializeField]
+	Text[] paletteNameInput;
+	[SerializeField]
+	GameObject EnterNameGO;
+	[SerializeField]
+	Text headerText;
+	string paletteString;
+
+	IEnumerator SavePalette ()
+	{
+		bool naming = true;
+		int charIndex = 0, flash = 0;
+		float lerpy = 0, backspaceCD = 0, upCD = 0, sideCD = 0, holdingVert = 0;
+
+
+		//open a window
+		while (lerpy < 1) {
+			lerpy += Time.fixedUnscaledDeltaTime;
+			SaveBox.sizeDelta = new Vector2 (
+				Mathf.Lerp(0,160,lerpy * 2),
+				Mathf.Lerp(4,80,(lerpy * 2) - 1));
+			yield return new WaitForEndOfFrame ();
+		}
+
+		headerText.gameObject.SetActive(true);
+		headerText.text = "Enter name for" + '\n' + "new palette";
+		EnterNameGO.SetActive(true);
+		arrowParent.gameObject.SetActive(true);
+
+		while (naming) {
+			backspaceCD = backspaceCD > 0 ? backspaceCD - Time.deltaTime : 0;
+			upCD = upCD > 0 ? upCD - Time.deltaTime : 0;
+			sideCD = sideCD > 0 ? sideCD - Time.deltaTime : 0;
+
+			float h = Input.GetAxis("Horizontal");
+			float v = Input.GetAxis("Vertical");
+
+			#region name input
+			#region Backspace || B button
+			if ((Input.GetKey(KeyCode.Backspace) || Input.GetKey(KeyCode.Joystick1Button1)) && backspaceCD <= 0) {
+				paletteNameInput [charIndex].text = "_";	
+				backspaceCD = 0.2f;
+				paletteNameInput [charIndex].color = Color.grey;
+				if (charIndex > 0)
+					charIndex--;
+			}
+			#endregion
+			else if (Mathf.Abs(h) > 0.4f && sideCD <= 0) {
+					#region horizontal		
+					if (inputString != "a" && inputString != "A" || inputString != "D" || inputString != "d") {
+						if (!Input.GetKey(KeyCode.A) && !Input.GetKey(KeyCode.D)) {
+							if (h > 0 && charIndex < paletteNameInput.Length - 1) {
+								paletteNameInput [charIndex].color = Color.grey;	
+								charIndex++;
+							}
+							if (h < 0 && charIndex > 0) {
+								paletteNameInput [charIndex].color = Color.grey;								
+								charIndex--;
+							}
+						}
+					}			
+					sideCD = .25f;
+					#endregion
+				}
+				else {
+					#region Vertical controller input
+					if (Mathf.Abs(v) > 0.35f && upCD <= 0) {
+						if (v > 0) {
+							if (paletteNameInput [charIndex].text == "_")
+								paletteNameInput [charIndex].text = "A";
+							else {
+								char charVal = paletteNameInput [charIndex].text [0];
+
+								switch (charVal) {
+									case '9':
+										paletteNameInput [charIndex].text = "A";
+										break;
+									case 'Z':
+										paletteNameInput [charIndex].text = "a";
+										break;
+									case 'z':
+										paletteNameInput [charIndex].text = "0";
+										break;
+									default:
+										paletteNameInput [charIndex].text = "" + (char)System.Convert.ToChar(charVal + 1);
+										break;
+								}
+							}
+							charArrowB.color = new Color (.55f, .55f, .55f, 1);
+							upCD = holdingVert < 1 ? 0.25f : 0.1f;
+						}
+						else if (v < 0) {
+								if (paletteNameInput [charIndex].text == "_")
+									paletteNameInput [charIndex].text = "z";
+								else {
+									char charVal = paletteNameInput [charIndex].text [0];
+									switch (charVal) {
+										case '0'://48:
+											paletteNameInput [charIndex].text = "z";
+											break;
+										case 'A'://65:
+											paletteNameInput [charIndex].text = "9";
+											break;
+										case 'a'://97:
+											paletteNameInput [charIndex].text = "Z";
+											break;
+										default:
+											paletteNameInput [charIndex].text = "" + (char)System.Convert.ToChar(charVal - 1);
+											break;
+									}
+								}
+								charArrowA.color = new Color (.55f, .55f, .55f, 1);
+								upCD = holdingVert < 1 ? 0.25f : 0.1f;
+							}
+						#endregion
+					}
+
+					#region keyboard typing
+					if (inputString != "#") {
+						paletteNameInput [charIndex].text = inputString;	
+						paletteNameInput [charIndex].color = Color.grey;
+						if (charIndex < paletteNameInput.Length - 1)
+							charIndex++;
+					}
+					#endregion
+					if (Mathf.Abs(v) > 0.5f)
+						holdingVert += Time.deltaTime;
+					else
+						holdingVert = 0;
+
+					flash++;
+					if (flash > 8)
+						flash = 0;
+
+					//Flash character being input
+					paletteNameInput [charIndex].color = flash < 4 ? Color.grey : new Color (.9f, .9f, .9f, 1);
+
+					//Also flash the new name in the scoreboard
+					arrowParent.anchoredPosition = new Vector2 (-809.5f + (200 * charIndex), -400);
+
+					charArrowA.color = upCD <= 0 ? new Color (.9f, .9f, .9f, 1) : charArrowA.color;
+					charArrowB.color = upCD <= 0 ? new Color (.9f, .9f, .9f, 1) : charArrowB.color;
+
+					paletteString = "";
+					foreach (Text t in paletteNameInput) {
+						if (t.text != "_")
+							paletteString += t.text;
+					}
+					if (Input.GetButton("Jump") && paletteString.Length > 1)
+						naming = false;
+					else if (Input.GetButton("Jump"))
+							SoundManager.instance.playSound(blips [4]);
+
+					yield return new WaitForEndOfFrame ();
+				}
+			#endregion
+		}
+		File.WriteAllBytes(Application.dataPath + "/styles/Custom/" +
+		PaletteSwapLookup.instance.LookupTexture.Count.ToString("0000")
+		+ '#' + paletteString + ".png",ActiveTexture.EncodeToPNG());
+		
+		PaletteSwapLookup.instance.loadPalettes();
+		PaletteSwapLookup.instance.SetPaletteIndex(PaletteSwapLookup.instance.LookupTexture.Count - 1);
+		PaletteSwapLookup.instance.SetPaletteIndex(0,PaletteName);
+
+
+		headerText.text = "Saved";
+		arrowParent.gameObject.SetActive(false);
+
+		while (!Input.GetButtonDown("Jump"))
+			yield return null;
+
+		headerText.gameObject.SetActive(false);
+		EnterNameGO.SetActive(false);
+
+		//close window
+		while (lerpy > 0) {
+			lerpy -= Time.fixedUnscaledDeltaTime;
+			SaveBox.sizeDelta = new Vector2 (
+				Mathf.Lerp(0,150,lerpy * 2),
+				Mathf.Lerp(4,98,(lerpy * 2) - 1));
+			yield return new WaitForEndOfFrame ();
+		}
+		input = true;
+	}
 
 	void ChangeSaveButtonState ()
 	{
@@ -247,7 +444,7 @@ public class CustomPaletteCreator : MonoBehaviour
 		pixelIndex = 0;
 		//Play opening/closing sound
 		SoundManager.instance.playSound(blips [open ? 1 : 2]);
-		ChangeSaveButtonState();
+		//ChangeSaveButtonState();
 		if (open)
 			PaletteSwapLookup.instance.loadPalettes();
 		//Expand out the big box everything is stored in;
@@ -268,7 +465,7 @@ public class CustomPaletteCreator : MonoBehaviour
 		}
 		else {
 			GetTextureSetSliders();
-			PaletteName.text = PlayerPrefs.GetInt("Palette") + ". " + PaletteSwapLookup.instance.LookupTexture [PlayerPrefs.GetInt("Palette")].name;
+			PaletteSwapLookup.instance.SetPaletteIndex(0,PaletteName);
 			input = true;
 			everything.SetActive(true);
 		}

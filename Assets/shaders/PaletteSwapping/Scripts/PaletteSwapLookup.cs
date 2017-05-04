@@ -18,10 +18,13 @@ public class PaletteSwapLookup : MonoBehaviour
 
 	bool loaded;
 
-	void OnEnable ()
+	void Start ()
 	{
-		if (UnlockManager.instance)
-			loadPalettes();
+		if (!PlayerPrefs.HasKey("Palette")) {
+			PlayerPrefs.SetInt("Palette",0);
+			paletteIndex = 0;
+		}
+		loadPalettes();
 		instance = this;
 		if (PlayerPrefs.HasKey("Palette")) {
 			paletteIndex = PlayerPrefs.GetInt("Palette");
@@ -32,14 +35,17 @@ public class PaletteSwapLookup : MonoBehaviour
 			_mat = new Material (swappingShader);
 	}
 
+	bool reading;
+
 	public void loadPalettes ()
 	{
 		if (UnlockManager.instance.playerLevel > 9) {	
 			LookupTexture = new List<Texture2D> ();
-			GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/");
-			GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/New batch");
-			GetStylesFromDirectory("/shaders/PaletteSwapping/PaletteTextures/styles/Custom");
+			reading = true;
+			GetStylesFromDirectory("/styles/");
+			GetStylesFromDirectory("/styles/Custom");
 			GetStylesFromDirectory("ERROR PLEASE");
+			reading = false;
 		}
 	}
 
@@ -48,9 +54,10 @@ public class PaletteSwapLookup : MonoBehaviour
 		if (Directory.Exists(Application.dataPath + extraPath)) {
 			DirectoryInfo dirInf = new  DirectoryInfo (Application.dataPath + extraPath);
 			FileInfo[] files = dirInf.GetFiles();
+			//Directory.GetFiles(Application.dataPath + extraPath).OrderBy(f=>f_
 			foreach (FileInfo f in files) {
 				//f.FullName.EndsWith(".psd") ||
-				if (f.FullName.EndsWith(".png")) {				
+				if (f.FullName.EndsWith(".png") || f.FullName.EndsWith(".psd")) {				
 					Texture2D newTex = new  Texture2D (4, 1, TextureFormat.RGB24, false);
 					newTex.filterMode = FilterMode.Point;
 					newTex.LoadImage(File.ReadAllBytes(f.FullName));
@@ -75,7 +82,7 @@ public class PaletteSwapLookup : MonoBehaviour
 
 		PlayerPrefs.SetInt("Palette",paletteIndex);
 		if (textComp)
-			textComp.text = paletteIndex + ". " + LookupTexture [paletteIndex].name;
+			textComp.text = paletteIndex + ". " + LookupTexture [paletteIndex].name.Remove(0,LookupTexture [paletteIndex].name.IndexOf('#') + 1);
 	}
 
 	public void SetPaletteIndex (int newIndex)
@@ -88,7 +95,7 @@ public class PaletteSwapLookup : MonoBehaviour
 	{
 		if (!instance)
 			instance = this;
-
+		/*
 		if (Input.GetKeyDown(KeyCode.KeypadPlus))
 			SetPaletteIndex(1,null);
 		if (Input.GetKeyDown(KeyCode.KeypadMinus))
@@ -113,7 +120,7 @@ public class PaletteSwapLookup : MonoBehaviour
 		if (Input.GetKeyDown(KeyCode.Keypad8))
 			SetPaletteIndex(8);
 		if (Input.GetKeyDown(KeyCode.Keypad9))
-			SetPaletteIndex(9);
+			SetPaletteIndex(9);*/
 	}
 
 	void OnDisable ()
@@ -124,8 +131,10 @@ public class PaletteSwapLookup : MonoBehaviour
 
 	void OnRenderImage (RenderTexture src, RenderTexture dst)
 	{
-		_mat.SetTexture("_PaletteTex",LookupTexture [paletteIndex]);
-		Graphics.Blit(src,dst,_mat);
+		if (!reading) {
+			_mat.SetTexture("_PaletteTex",LookupTexture [paletteIndex]);
+			Graphics.Blit(src,dst,_mat);
+		}
 	}
 
 }

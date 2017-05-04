@@ -94,9 +94,11 @@ public class EndGameUI : MonoBehaviour
 					yield return StartCoroutine(Unlock(true));
 				}
 			}
-			yield return new WaitForEndOfFrame ();
+			Debug.Log(UnlockManager.instance.experienceSlider.value == UnlockManager.instance.experienceSlider.maxValue);
+			yield return null;
 		}
-
+		Debug.Log("ou");
+		Debug.Log(UnlockManager.instance.experienceSlider.value == UnlockManager.instance.experienceSlider.maxValue);
 		yield return new WaitForSeconds (2);
 
 		//Record high score

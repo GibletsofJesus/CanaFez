@@ -68,7 +68,29 @@ public class UIScoreManager : MonoBehaviour
 		newText.transform.localPosition = new Vector3 (Mathf.Lerp(-16.25f,16.25f,spawnPos.x), Mathf.Lerp(-11.4f,11.4f,spawnPos.y), 0);
 		ActiveTexts.Add(newText);
 		scoreText textData = newText.GetComponent<scoreText>();
-		textData.Setup(spawnPos,points);
+		textData.Setup(points);
+	}
+
+	public void SpawnText (Vector3 spawnPos, scoreText.textType _type)
+	{
+		GameObject newText;
+		if (InactiveTexts.Count > 0) {
+			newText = InactiveTexts [0];
+			InactiveTexts.Remove(newText);
+			newText.SetActive(true);
+			newText.transform.localPosition = spawnPos;
+			//newText.transform.rotation = Quaternion.Euler(Vector3.left * 90);
+		}
+		else {
+			newText = GameObject.Instantiate(prefab,attachScoresToMe.transform);
+		}
+		newText.transform.localScale = Vector3.one / 66;
+		newText.transform.localPosition = (_type == scoreText.textType.death ? 
+			new Vector3 (-12f, 8.5f, 0) : 
+			new Vector3 (Mathf.Lerp(-16.25f,16.25f,spawnPos.x), Mathf.Lerp(-11.4f,11.4f,spawnPos.y), 0));
+		ActiveTexts.Add(newText);
+		scoreText textData = newText.GetComponent<scoreText>();
+		textData.Setup(_type);
 	}
 
 	public void SpawnEndGameText (int points)

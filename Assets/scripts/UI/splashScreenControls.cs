@@ -99,7 +99,7 @@ public class splashScreenControls : MonoBehaviour
 	{
 		switch (state) {
 			case MenuState.start:
-				if (Input.GetKeyDown(KeyCode.Escape) || Input.touchCount > 0 || Input.GetKeyDown(KeyCode.Joystick1Button7)) {
+				if (Input.anyKeyDown || Input.touchCount > 0 || Input.GetKeyDown(KeyCode.Joystick1Button7)) {
 					startPrompt.enabled = false;
 					startPrompt.GetComponent<SpriteRenderer>().enabled = false;
 					mainMenu [0].gameObject.SetActive(true);
@@ -184,19 +184,19 @@ public class splashScreenControls : MonoBehaviour
 						SoundManager.instance.playSound(blips [0],1,0.75f + Mathf.Clamp(timePushing / 4,0,.5f) + Random.Range(-0.03f,0.03f));
 						timePushing = _prevV > 0 ? timePushing + 0.25f : 0;
 						menuMoveCD = timePushing > 1 ? 0.05f : 0.15f;
-						optionsIndex = optionsIndex > 0 ? optionsIndex - 1 : 4;
+						optionsIndex = optionsIndex > 0 ? optionsIndex - 1 : 3;
 					}
 					else {
 						SoundManager.instance.playSound(blips [0],1,0.75f + Mathf.Clamp(timePushing / 4,0,0.5f) + Random.Range(-0.03f,0.03f));
 						timePushing = _prevV < 0 ? timePushing + 0.25f : 0;
 						menuMoveCD = timePushing > 1 ? 0.05f : 0.15f;
-						optionsIndex = optionsIndex < 4 ? optionsIndex + 1 : 0;
+						optionsIndex = optionsIndex < 3 ? optionsIndex + 1 : 0;
 					}
 
 					if (optionsIndex < 2)
-						optionsArrow.rectTransform.anchoredPosition = new Vector3 (-43f, 35.5f - (optionsIndex * 10f), 0);
+						optionsArrow.rectTransform.anchoredPosition = new Vector3 (-43f, 24.5f - (optionsIndex * 10f), 0);
 					else
-						optionsArrow.rectTransform.anchoredPosition = new Vector3 (-43f, 45.5f - (optionsIndex * 20f), 0);
+						optionsArrow.rectTransform.anchoredPosition = new Vector3 (-43f, 34.5f - (optionsIndex * 20f), 0);
 				}
 				_prevV = _v;
 				#endregion
@@ -214,9 +214,6 @@ public class splashScreenControls : MonoBehaviour
 							}*/
 							break;
 						case 3:
-							//Some popup option for wiping highscores
-							break;
-						case 4:
 							state = MenuState.idle;
 							StartCoroutine(Options(false));
 							SoundManager.instance.playSound(blips [2],1,1);
@@ -261,7 +258,7 @@ public class splashScreenControls : MonoBehaviour
 			lerpy += Time.deltaTime * 1.5f;
 			optionsBox.rectTransform.sizeDelta = new Vector2 (
 				Mathf.Lerp(0,100,(open ? lerpy : 1 - lerpy) * 2),
-				Mathf.Lerp(4,93,((open ? lerpy : 1 - lerpy) * 2) - 1));
+				Mathf.Lerp(4,72,((open ? lerpy : 1 - lerpy) * 2) - 1));
 			yield return new WaitForEndOfFrame ();
 		}
 		mainMenu [1].GetComponent<flash>().enabled = false;

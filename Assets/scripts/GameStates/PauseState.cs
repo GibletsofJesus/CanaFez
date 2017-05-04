@@ -8,6 +8,7 @@ public class PauseState : GameState
 		GameStateManager.instance.PauseMenu.SetActive(true);
 		GameStateManager.instance.GameplayUI.SetActive(false);
 		menuIndex = 0;
+
 	}
 
 	public override void OnStateDeactivate ()

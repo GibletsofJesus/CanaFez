@@ -107,6 +107,8 @@ public class PlayerCharacter : MonoBehaviour
 	{
 		if (transform.position.y < -17 && !respawning) {
 			StartCoroutine(respawnEffect());
+			GameTimer.instance.timeElapsed += 15f;
+			UIScoreManager.instance.SpawnText(Vector3.zero,scoreText.textType.death);
 		}
 	}
 
@@ -139,6 +141,11 @@ public class PlayerCharacter : MonoBehaviour
 		yield return new WaitForSeconds (0.5f);
 		respawning = false;
 		//Then return control to player
+	}
+
+	public int  GetPointsForDistance ()
+	{
+		return (int)Vector3.Distance(jumpStartPosition,transform.position) * 5;
 	}
 
 	void UpdateAnimator (Vector3 move)
@@ -233,6 +240,7 @@ public class PlayerCharacter : MonoBehaviour
 
 	public void UnPause ()
 	{
+		vibration = tempVib;
 		SoundManager.instance.managedAudioSources [1].AudioSrc.volume = SoundManager.instance.managedAudioSources [1].volumeLimit;
 		m_Rigidbody.velocity = UnPausedVelocity;
 		m_Rigidbody.isKinematic = false;
@@ -240,9 +248,12 @@ public class PlayerCharacter : MonoBehaviour
 	}
 
 	Vector3 UnPausedVelocity;
+	float tempVib;
 
 	public void Pause ()
 	{
+		tempVib = vibration;
+		vibration = 0;
 		SoundManager.instance.managedAudioSources [1].AudioSrc.volume = 0;
 		UnPausedVelocity = m_Rigidbody.velocity;
 		m_Rigidbody.isKinematic = true;
@@ -257,6 +268,7 @@ public class PlayerCharacter : MonoBehaviour
 
 	public void Move (Vector3 move, bool crouch)
 	{
+		decreaseVibration();
 		AdjustCamera();
 
 		#region Stop the player from moving along another axis
@@ -327,7 +339,7 @@ public class PlayerCharacter : MonoBehaviour
 				#region regular movement
 				if (!rolling) {
 					CheckDeath();
-					if (Input.GetButtonDown("Fire1")) {
+					if (Input.GetButtonDown("Respawn")) {
 						m_Rigidbody.isKinematic = true;
 						StartCoroutine(respawnEffect());
 					}
@@ -378,10 +390,6 @@ public class PlayerCharacter : MonoBehaviour
 			}
 		UpdateAnimator(move);
 
-		if (rolling) {
-			Debug.Log("Grounded: " + m_IsGrounded);
-			Debug.Log("Crouching: " + m_Crouching);
-		}
 		#region Wooshing effects
 		if (GameStateManager.instance.GetState() == GameStateManager.GameStates.STATE_GAMEPLAY) {
 			SoundManager.instance.managedAudioSources [1].volumeLimit = (Mathf.Lerp(
@@ -625,11 +633,12 @@ public class PlayerCharacter : MonoBehaviour
 
 		}
 		else {
+			if (m_IsGrounded)
+				jumpStartPosition = transform.position;
 			m_IsGrounded = false;
 			m_GroundNormal = Vector3.up;
 			m_Animator.applyRootMotion = false;
 		}
-		decreaseVibration();
 	}
 
 	void decreaseVibration ()
@@ -686,7 +695,7 @@ public class PlayerCharacter : MonoBehaviour
 		else if (position.y < jumpStartPosition.y && upToSpeed) {
 				if (!rolling && !respawning && transform.position.y > -25) {
 					rolling = true;
-					StartCoroutine(CrouchRoll(movingOnXAxis() ? Mathf.Abs(m_Rigidbody.velocity.x) : Mathf.Abs(m_Rigidbody.velocity.z),position));
+					StartCoroutine(CrouchRoll(movingOnXAxis() ? Mathf.Abs(m_Rigidbody.velocity.x) / 2 : Mathf.Abs(m_Rigidbody.velocity.z) / 2,position));
 				}
 			}
 			else {
