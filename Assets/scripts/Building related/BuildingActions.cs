@@ -49,8 +49,7 @@ public class BuildingActions : MonoBehaviour
 						spawnerSound = null;
 				}
 
-				if (GameTimer.instance.timeElapsed > 3)
-					minimapCapture.instance.Capture(PlayerCharacter.instance.GetPointsForDistance());
+				minimapCapture.instance.Capture(GameTimer.instance.timeElapsed > 3 ? PlayerCharacter.instance.GetPointsForDistance() : 0);
 				minimapHighlight.SetActive(true);
 
 				if (flashSound) {
